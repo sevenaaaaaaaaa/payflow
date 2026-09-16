@@ -1,0 +1,13 @@
+# 运行时数据与密钥
+data/
+*.secret.json
+secrets*
+.env*
+*.log
+*.cache
+vendor/
+node_modules/
+.DS_Store
+*.db
+*.sqlite*
+uploads/
