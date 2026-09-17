@@ -14,7 +14,7 @@ use RuntimeException;
  * - 写入用临时文件 + rename 原子替换，配合 flock 防止并发覆盖
  * - 降级兼容：服务器 SQLite 3.7.17 无 UPSERT，故 H1 一律走 JSON 层
  */
-final class JsonStore
+final class JsonStore implements StoreInterface
 {
     private string $file;
     private ?array $cache = null;
@@ -30,6 +30,11 @@ final class JsonStore
     public function file(): string
     {
         return $this->file;
+    }
+
+    public function driver(): string
+    {
+        return 'json';
     }
 
     /** @return array<string, array> */

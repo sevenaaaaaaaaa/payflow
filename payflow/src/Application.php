@@ -25,6 +25,7 @@ use PayFlow\Domain\SubscriptionRepository;
 use PayFlow\Domain\VoucherRepository;
 use PayFlow\Domain\WebhookDeliveryRepository;
 use PayFlow\Payment\ChannelManager;
+use PayFlow\Store\StoreFactory;
 use PayFlow\Service\AnalyticsService;
 use PayFlow\Service\ApiAuth;
 use PayFlow\Service\CommissionService;
@@ -46,6 +47,7 @@ use PayFlow\Service\WebhookDispatcher;
  */
 final class Application
 {
+    public readonly StoreFactory $stores;
     public readonly ProductRepository $products;
     public readonly OrderRepository $orders;
     public readonly CustomerRepository $customers;
@@ -87,27 +89,29 @@ final class Application
     {
         $dataDir = (string) $config['data_dir'];
         $baseUrl = (string) ($config['app']['base_url'] ?? '');
+        $stores = new StoreFactory($config, $dataDir);
+        $this->stores = $stores;
 
-        $this->products = new ProductRepository($dataDir);
-        $this->orders = new OrderRepository($dataDir);
-        $this->customers = new CustomerRepository($dataDir);
-        $this->subscriptions = new SubscriptionRepository($dataDir);
-        $this->entitlements = new EntitlementRepository($dataDir);
-        $this->events = new EventRepository($dataDir);
-        $this->coupons = new CouponRepository($dataDir);
-        $this->redemptions = new RedemptionRepository($dataDir);
-        $this->referrals = new ReferralRepository($dataDir);
-        $this->commissions = new CommissionRepository($dataDir);
-        $this->payouts = new PayoutRepository($dataDir);
-        $this->assets = new AssetRepository($dataDir);
-        $this->licenses = new LicenseRepository($dataDir);
-        $this->downloads = new DownloadRepository($dataDir);
-        $this->apiKeys = new ApiKeyRepository($dataDir);
-        $this->webhookDeliveries = new WebhookDeliveryRepository($dataDir);
-        $this->invoices = new InvoiceRepository($dataDir);
-        $this->paymentLinks = new PaymentLinkRepository($dataDir);
-        $this->cards = new CardRepository($dataDir);
-        $this->vouchers = new VoucherRepository($dataDir);
+        $this->products = new ProductRepository($stores);
+        $this->orders = new OrderRepository($stores);
+        $this->customers = new CustomerRepository($stores);
+        $this->subscriptions = new SubscriptionRepository($stores);
+        $this->entitlements = new EntitlementRepository($stores);
+        $this->events = new EventRepository($stores);
+        $this->coupons = new CouponRepository($stores);
+        $this->redemptions = new RedemptionRepository($stores);
+        $this->referrals = new ReferralRepository($stores);
+        $this->commissions = new CommissionRepository($stores);
+        $this->payouts = new PayoutRepository($stores);
+        $this->assets = new AssetRepository($stores);
+        $this->licenses = new LicenseRepository($stores);
+        $this->downloads = new DownloadRepository($stores);
+        $this->apiKeys = new ApiKeyRepository($stores);
+        $this->webhookDeliveries = new WebhookDeliveryRepository($stores);
+        $this->invoices = new InvoiceRepository($stores);
+        $this->paymentLinks = new PaymentLinkRepository($stores);
+        $this->cards = new CardRepository($stores);
+        $this->vouchers = new VoucherRepository($stores);
 
         $this->channels = new ChannelManager($config['channels'] ?? [], $baseUrl);
         $this->entitlementService = new EntitlementService($this->entitlements, $this->customers, $baseUrl);

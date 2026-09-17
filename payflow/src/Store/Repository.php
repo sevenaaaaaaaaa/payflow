@@ -8,11 +8,11 @@ use PayFlow\Support\Id;
 
 abstract class Repository
 {
-    protected JsonStore $store;
+    protected StoreInterface $store;
 
-    public function __construct(string $dataDir)
+    public function __construct(StoreFactory $stores)
     {
-        $this->store = new JsonStore($dataDir, static::collection());
+        $this->store = $stores->store(static::collection());
     }
 
     abstract protected static function collection(): string;

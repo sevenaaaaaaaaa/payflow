@@ -40,6 +40,6 @@
 
 ## 技术约束（与 OpenFlow 一致）
 
-- PHP 8.3、SQLite（兼容 3.7.17 降级）、无框架、零 composer 运行时依赖
+- PHP 8.3、MySQL 主库（SQLite 辅助回退，JSON 兜底）、无框架、零 composer 运行时依赖
 - 域名：入口 `https://nownexts.com/payflow`（服务器 `<docroot>/payflow`，子路径挂载）
 - 部署/rsync/GitHub/CF/AI 配置见 `docs/` 同名文档（从 OpenFlow 同步来的副本）

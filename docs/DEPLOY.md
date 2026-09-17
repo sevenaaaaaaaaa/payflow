@@ -16,7 +16,8 @@
 | 证书 | 复用 `/www/server/panel/vhost/cert/nownexts.com/`（CF full 模式容忍；边缘 CF Universal SSL 覆盖） |
 | PHP CLI | `/www/server/php/83/bin/php`（生产 CLI 报 zip 重复加载警告是已知问题） |
 | 应用配置 | `app.base_url=https://nownexts.com/payflow`、`app.base_path=/payflow` |
-| 运行时目录 | `data/`（JSON 数据，服务器为源）、`uploads/`（数字交付文件；.htaccess 已阻断直连） |
+| 存储 | **MySQL 主库**（`payflow` 库，表 `pf_records`）→ SQLite 辅助回退 → JSON 兜底 |
+| 运行时目录 | `data/`（配置 + 旧 JSON 备份 + SQLite 回退库）、`uploads/`（数字交付文件；.htaccess 已阻断直连） |
 | 定时任务 | crontab：`*/15 * * * * cd /www/wwwroot/payflow && /www/server/php/83/bin/php bin/cron.php >> data/cron.log 2>&1` |
 | SQLite | 服务器 3.7.17（无 FTS5/UPSERT；H1 走 JSON 数据层，不受影响） |
 

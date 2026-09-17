@@ -67,6 +67,7 @@
 - 交付：文件托管 + 签名限时/限次下载、License 密钥、发卡库存（自动发卡密）
 - 开放：API Key/HMAC 对外 API（`/api/v1/*`，见 `docs/API.md`）、Webhook 出站（HMAC + 重试）、发票/收据
 - 看板：GMV、转化漏斗、订阅健康（MRR/流失）、渠道分布、佣金；订单搜索/分页/CSV 导出；操作审计
+- 存储：MySQL 主库（`pf_records`）→ SQLite 辅助回退 → JSON 兜底；`bin/migrate.php` 幂等迁移
 
 ## 定时任务（生产）
 

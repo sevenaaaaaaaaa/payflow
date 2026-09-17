@@ -26,6 +26,23 @@ return [
 
     'data_dir' => PAYFLOW_ROOT . '/data',
 
+    // 存储：MySQL 主库 → SQLite 辅助回退 → JSON 兜底
+    // driver: auto（有 MySQL 凭据用 MySQL，否则 SQLite）| mysql | sqlite | json
+    'database' => [
+        'driver' => 'auto',
+        'mysql' => [
+            'enabled' => false,        // true 或环境变量 MYSQL_ENABLED=1
+            'host' => 'localhost',
+            'port' => 3306,
+            'database' => 'payflow',
+            'username' => 'payflow',
+            'password' => '',
+            'charset' => 'utf8mb4',
+        ],
+        // 辅助/回退库（文件位于 data/ 下，gitignored）
+        'sqlite_path' => PAYFLOW_ROOT . '/data/payflow.sqlite',
+    ],
+
     // 管理后台登录（用户名 + 密码；真实值放 data/config.json）
     'admin' => [
         'username' => 'admin',

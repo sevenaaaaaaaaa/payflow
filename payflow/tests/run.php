@@ -111,6 +111,24 @@ check('删除记录', !(new JsonStore($tmp, 'demo'))->has('a2'));
 array_map('unlink', glob($tmp . '/*') ?: []);
 @rmdir($tmp);
 
+echo "\n[存储驱动]\n";
+$tmpDb = sys_get_temp_dir() . '/pf-db-' . bin2hex(random_bytes(4));
+@mkdir($tmpDb, 0775, true);
+$dbFactory = new \PayFlow\Store\StoreFactory(['database' => ['driver' => 'sqlite', 'sqlite_path' => $tmpDb . '/t.sqlite']], $tmpDb);
+check('SQLite 驱动可用', $dbFactory->driver() === 'sqlite', $dbFactory->driver() . ' / ' . (string) $dbFactory->error());
+$sqlStore = $dbFactory->store('demo');
+$sqlStore->put(['id' => 's1', 'v' => 1]);
+$sqlStore->put(['id' => 's2', 'v' => 2]);
+check('SqlStore 写入读取', $sqlStore->find('s1')['v'] === 1 && count($sqlStore->all()) === 2);
+$sqlStore->mutate(static function (array $records): array {
+    $records['s1']['v'] = 42;
+    return $records;
+});
+check('SqlStore 事务读改写', $dbFactory->store('demo')->find('s1')['v'] === 42);
+$sqlStore->delete('s2');
+check('SqlStore 删除', !$dbFactory->store('demo')->has('s2'));
+rrmdir($tmpDb);
+
 echo "\n[订阅续费引擎]\n";
 $tmpSub = sys_get_temp_dir() . '/pf-sub-' . bin2hex(random_bytes(4));
 $subCfg = [
@@ -166,8 +184,7 @@ $activeEnt = array_filter($subApp->entitlements->forSubscription((string) $sub['
 check('降级后权益撤销', $activeEnt === []);
 $customer = $subApp->customers->find((string) $paid['customer_id']);
 check('降级后会员等级清空', ($customer['membership_level'] ?? null) === null);
-array_map('unlink', glob($tmpSub . '/*') ?: []);
-@rmdir($tmpSub);
+rrmdir($tmpSub);
 
 echo "\n[优惠券]\n";
 $tmpCp = sys_get_temp_dir() . '/pf-cp-' . bin2hex(random_bytes(4));
@@ -196,8 +213,7 @@ check('满减券金额正确', (int) $res2['order']['amount_cents'] === 9000);
 $cpApp->orderService->cancel((string) $res2['order']['id'], 'test');
 $cpRel = $cpApp->coupons->findByCode('REL10');
 check('取消订单释放优惠券', (int) $cpRel['redeemed_count'] === 0 && ($cpApp->redemptions->forOrder((string) $res2['order']['id'])['status'] ?? '') === 'released');
-array_map('unlink', glob($tmpCp . '/*') ?: []);
-@rmdir($tmpCp);
+rrmdir($tmpCp);
 
 echo "\n[推荐 · 佣金 · 提现]\n";
 $tmpRef = sys_get_temp_dir() . '/pf-ref-' . bin2hex(random_bytes(4));
@@ -243,8 +259,7 @@ check('退款冲正未打款佣金', ($refApp->commissions->forOrder((string) $o
 $self = $refApp->orderService->startCheckout($gid, 'referrer@test.com', '自己', 'manual', ['referral' => (string) $referrer['code']]);
 $refApp->orderService->markPaid((string) $self['order']['id'], 'R3', 10000, []);
 check('自荐不计佣', $refApp->commissions->forOrder((string) $self['order']['id']) === null);
-array_map('unlink', glob($tmpRef . '/*') ?: []);
-@rmdir($tmpRef);
+rrmdir($tmpRef);
 
 echo "\n[数字交付 · License]\n";
 $tmpDl = sys_get_temp_dir() . '/pf-dl-' . bin2hex(random_bytes(4));
