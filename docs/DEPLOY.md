@@ -19,11 +19,32 @@
 | 存储 | **MySQL 主库**（`payflow` 库，表 `pf_records`）→ SQLite 辅助回退 → JSON 兜底 |
 | 运行时目录 | `data/`（配置 + 旧 JSON 备份 + SQLite 回退库）、`uploads/`（数字交付文件；.htaccess 已阻断直连） |
 | 定时任务 | crontab：`*/15 * * * * cd /www/wwwroot/payflow && /www/server/php/83/bin/php bin/cron.php >> data/cron.log 2>&1` |
-| SQLite | 服务器 3.7.17（无 FTS5/UPSERT；H1 走 JSON 数据层，不受影响） |
 
 > 用 `Alias` 挂载后，`/payflow` 在 URL→文件映射阶段就指向了应用目录，主站 docroot 的
 > `.htaccess` router 不再参与，因此互不干扰；产品页 `/product/payflow` 照常。
 > 宝塔面板若重建 vhost，需确认 `Alias` 与 `<Directory>` 仍在（或在面板里加「反向代理/别名」）。
+
+### 备选入口（独立子域）
+
+同一套代码同时服务两个入口，应用按 Host 自适应 `base_path`：
+
+| 入口 | base_path | 说明 |
+|---|---|---|
+| `https://nownexts.com/payflow` | `/payflow` | nownexts.com vhost 的 `Alias /payflow /www/wwwroot/payflow` |
+| `https://payflow.nownexts.com` | ``（空） | 独立 vhost，DocumentRoot 直接指向应用根 |
+
+子域 vhost 必须包含以下两项，否则 `.htaccess` 不生效、PHP 会被当静态源码输出：
+
+```apache
+<Directory "/www/wwwroot/payflow">
+    Options -Indexes +FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+<FilesMatch \.php$>
+    SetHandler "proxy:unix:/tmp/php-cgi-83.sock|fcgi://localhost"
+</FilesMatch>
+```
 
 ## 二、代码同步（rsync）
 

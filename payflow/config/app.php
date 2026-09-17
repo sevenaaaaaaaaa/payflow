@@ -18,6 +18,9 @@ return [
         // 把 base_url 设为 https://payflow.nownexts.com 且 base_path 设为空串。
         'base_url' => 'https://nownexts.com/payflow',
         'base_path' => '/payflow',
+        // 同应用的备选入口（独立子域）。当 Host 匹配时自动切换 base_path='' / base_url=子域，
+        // 使同一套代码在 nownexts.com/payflow 与 payflow.nownexts.com 下都能正确生成链接。
+        'subdomain' => 'payflow.nownexts.com',
         'timezone' => 'Asia/Shanghai',
         // 二维码渲染端点（前缀拼接支付串）。默认用公共渲染服务，注重隐私可自建或留空
         // 留空时收银台只展示可复制的支付串。

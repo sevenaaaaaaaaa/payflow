@@ -13,6 +13,9 @@
 | 应用挂载 | `app.base_url=https://nownexts.com/payflow`、`app.base_path=/payflow` |
 | 边缘缓存 | 已加缓存规则：`starts_with(http.request.uri.path, "/payflow")` → **Bypass cache**（后台/结账/支付/交付为会话页面，禁止边缘缓存） |
 
+> 备选子域 `payflow.nownexts.com` 同样禁止边缘缓存：缓存规则加 `http.host eq "payflow.nownexts.com"` → Bypass cache，
+> 并在 catch-all 规则追加 `and http.host ne "payflow.nownexts.com"`。
+
 > zone 里有一条 catch-all 缓存规则「Cache Dynamic HTML for Anonymous Visitors」（边缘缓存动态 HTML）。
 > 该规则需把 `/payflow` 排除（`and not starts_with(http.request.uri.path, "/payflow")`），否则它会覆盖
 > `/payflow` 的 bypass，导致登录态页面被缓存（表现为登录后仍看到登录页）。规则集 ID：

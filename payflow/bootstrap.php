@@ -40,6 +40,16 @@ if (is_file($overrideFile)) {
 // 挂载子路径（如 /payflow）供 URL 生成使用；路由匹配时会自动剥离。
 $GLOBALS['PF_BASE_PATH'] = rtrim((string) ($config['app']['base_path'] ?? ''), '/');
 
+// 独立子域入口自适应：Host 命中 app.subdomain 时，根路径即应用根（base_path=''）。
+$host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+$host = explode(':', $host)[0];
+$subdomain = strtolower((string) ($config['app']['subdomain'] ?? ''));
+if ($host !== '' && $subdomain !== '' && $host === $subdomain) {
+    $config['app']['base_path'] = '';
+    $config['app']['base_url'] = 'https://' . $subdomain;
+    $GLOBALS['PF_BASE_PATH'] = '';
+}
+
 // 全站签名密钥（签名下载/API HMAC）。优先 config.secret，回退后台密码哈希。
 $secret = (string) ($config['secret'] ?? '');
 if ($secret === '') {
