@@ -1,0 +1,29 @@
+# PayFlow · Apache 规则（支持子路径部署，如 nownexts.com/payflow）
+# 规则均为目录相对，因此既可用作独立子域 docroot，也可作为子目录挂载。
+
+RewriteEngine On
+
+# 让 PHP 能读到 Authorization 头（API Bearer 鉴权需要；Apache 默认会剥离）
+CGIPassAuth On
+
+# 1) 源码/数据/密钥一律禁止直连（放在静态放行之前）
+RewriteRule ^(data|config|src|views|tests|bin|uploads)/ - [F,L]
+RewriteRule ^\.(git|env|htaccess$) - [F,L]
+RewriteRule \.(json|lock|tmp|log|md)$ - [F,L]
+
+# 2) 真实存在的文件/目录直接返回（静态资产）
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# 3) 其余全部交给前端控制器
+RewriteRule ^ index.php [L]
+
+Options -Indexes
+
+# 结账 SDK 需短缓存（覆盖主站对 .js/.css 的 7 天长缓存）
+<IfModule mod_headers.c>
+  <FilesMatch "checkout\.(js|css)$">
+    Header set Cache-Control "public, max-age=300"
+  </FilesMatch>
+</IfModule>

@@ -1,0 +1,40 @@
+<?php
+$active = 'coupons';
+require __DIR__ . '/../partials/admin-head.php';
+use PayFlow\Support\Money;
+?>
+
+<section style="padding:28px 0 16px" class="pf-row-between">
+  <div>
+    <h1 style="font-size:24px;font-weight:700">优惠券</h1>
+    <p class="pf-muted" style="margin-top:6px">满减 / 折扣 / 限时 / 限量。</p>
+  </div>
+  <a class="pf-btn" href="<?= pf_url('/admin/coupons/new') ?>">新建优惠券</a>
+</section>
+
+<div class="pf-card">
+  <table class="pf-table">
+    <thead><tr><th>码</th><th>优惠</th><th>门槛</th><th>已用/上限</th><th>有效期</th><th>状态</th><th></th></tr></thead>
+    <tbody>
+    <?php foreach ($coupons as $coupon): ?>
+      <tr>
+        <td><strong class="pf-mono"><?= pf_e((string) $coupon['code']) ?></strong><div class="pf-faint"><?= pf_e((string) ($coupon['description'] ?? '')) ?></div></td>
+        <td><?= ($coupon['type'] ?? '') === 'percent' ? (int) $coupon['value'] . '% off' : Money::yuan((int) $coupon['value']) . ' off' ?></td>
+        <td><?= (int) ($coupon['min_amount_cents'] ?? 0) > 0 ? Money::yuan((int) $coupon['min_amount_cents']) : '—' ?></td>
+        <td><?= (int) ($coupon['redeemed_count'] ?? 0) ?> / <?= (int) ($coupon['max_redemptions'] ?? 0) === 0 ? '∞' : (int) $coupon['max_redemptions'] ?></td>
+        <td class="pf-faint"><?= pf_e(($coupon['starts_at'] ?? '') !== '' ? substr((string) $coupon['starts_at'], 0, 10) : '—') ?> ~ <?= pf_e(($coupon['expires_at'] ?? '') !== '' ? substr((string) $coupon['expires_at'], 0, 10) : '—') ?></td>
+        <td><span class="pf-pill <?= ($coupon['active'] ?? true) ? 'ok' : 'neutral' ?>"><?= ($coupon['active'] ?? true) ? '启用' : '停用' ?></span></td>
+        <td style="white-space:nowrap">
+          <a class="pf-btn ghost sm" href="<?= pf_url('/admin/coupons/' . (string) $coupon['id'] . '/edit') ?>">编辑</a>
+          <form method="post" action="<?= pf_url('/admin/coupons/' . (string) $coupon['id'] . '/delete') ?>" style="display:inline" onsubmit="return confirm('删除该优惠券？')">
+            <button class="pf-btn ghost sm" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+    <?php endforeach; ?>
+    <?php if ($coupons === []): ?><tr><td colspan="7" class="pf-faint">还没有优惠券</td></tr><?php endif; ?>
+    </tbody>
+  </table>
+</div>
+
+<?php require __DIR__ . '/../partials/admin-foot.php'; ?>

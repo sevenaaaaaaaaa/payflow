@@ -1,6 +1,6 @@
-# LearnFlow · AI 配置（DeepSeek，同步自 OpenFlow）
+# PayFlow · AI 配置（DeepSeek，同步自 OpenFlow）
 
-> LearnFlow/矩阵产品统一走 OpenAI 兼容协议接 DeepSeek。真实 API Key 放
+> PayFlow/矩阵产品统一走 OpenAI 兼容协议接 DeepSeek。真实 API Key 放
 > `docs/secrets-local.md`（gitignored），本文件只存非敏感配置与用法。
 
 ## DeepSeek（主力供应商）
