@@ -52,6 +52,7 @@ final class AdminController
         if ($request->method === 'POST' && !$this->auth->verifyCsrf($request)) {
             return Response::html(View::render('error', ['code' => 419, 'message' => '表单已过期，请刷新后重试']), 419);
         }
+        $this->logAdminEvent('admin.logout', ['ip' => $request->ip()]);
         $this->auth->logout();
 
         return Response::redirect(pf_url('/'));
@@ -59,11 +60,40 @@ final class AdminController
 
     private function attemptLogin(Request $request): Response
     {
-        if ($this->auth->login($request)) {
-            return Response::redirect(pf_url('/'));
+        $ip = $request->ip();
+        $user = $request->string('username');
+
+        $locked = $this->app->loginThrottle->lockedSeconds($user, $ip);
+        if ($locked > 0) {
+            $this->logAdminEvent('admin.login.locked', ['username' => $user, 'ip' => $ip, 'remaining' => $locked]);
+
+            return $this->loginPage('尝试次数过多，请 ' . (int) ceil($locked / 60) . ' 分钟后再试');
         }
 
-        return $this->loginPage('用户名或密码不正确');
+        if ($this->auth->login($request)) {
+            $this->app->loginThrottle->clear($user, $ip);
+            $this->logAdminEvent('admin.login.success', ['username' => $user, 'ip' => $ip]);
+            $next = $this->auth->pullNext();
+
+            return Response::redirect($next ?? pf_url('/'));
+        }
+
+        $state = $this->app->loginThrottle->failure($user, $ip);
+        $this->logAdminEvent('admin.login.failed', ['username' => $user, 'ip' => $ip, 'locked' => $state['locked']]);
+        $msg = $state['locked']
+            ? '尝试次数过多，账号已锁定 ' . (int) \PayFlow\Support\Arr::get($this->app->config, 'admin.login_lock_minutes', 15) . ' 分钟'
+            : '用户名或密码不正确';
+
+        return $this->loginPage($msg);
+    }
+
+    private function logAdminEvent(string $type, array $payload): void
+    {
+        try {
+            $this->app->events->log($type, $payload);
+        } catch (\Throwable $e) {
+            error_log('[PayFlow][audit] ' . $e->getMessage());
+        }
     }
 
     private function loginPage(?string $error = null): Response
@@ -71,6 +101,7 @@ final class AdminController
         return Response::html(View::render('admin/login', [
             'error' => $error,
             'configured' => $this->auth->configured(),
+            'lockMinutes' => (int) \PayFlow\Support\Arr::get($this->app->config, 'admin.login_lock_minutes', 15),
         ]), $error === null ? 200 : 401);
     }
 
@@ -105,6 +136,8 @@ final class AdminController
     private function guard(Request $request): ?Response
     {
         if (!$this->auth->attempt($request)) {
+            $this->auth->rememberNext($request->path);
+
             return Response::redirect(pf_url('/'));
         }
         if ($request->method === 'POST' && !$this->auth->verifyCsrf($request)) {
@@ -719,6 +752,7 @@ final class AdminController
             'commissions_matured' => $this->app->commissionService->mature(),
             'webhooks_retried' => $this->app->webhooks->retryDue(),
             'rate_limits_pruned' => $this->app->rateLimiter->prune(),
+            'login_attempts_pruned' => $this->app->loginThrottle->prune(7),
             'events_pruned' => $this->app->events->prune(
                 (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_retention_days', 180),
                 (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_max_rows', 50000),

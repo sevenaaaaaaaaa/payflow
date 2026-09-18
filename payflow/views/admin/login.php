@@ -32,6 +32,7 @@
       <input class="pf-input" type="password" id="password" name="password" autocomplete="current-password" required>
     </div>
     <button class="pf-btn block" type="submit">登录</button>
+    <p class="pf-faint" style="margin-top:12px">连续失败将临时锁定（默认 <?= (int) ($lockMinutes ?? 15) ?> 分钟）。</p>
   </form>
 </div>
 </body>

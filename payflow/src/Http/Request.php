@@ -96,6 +96,18 @@ final class Request
         return in_array($value, ['1', 'true', 'on', 'yes'], true);
     }
 
+    public function ip(): string
+    {
+        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $key) {
+            $value = (string) ($_SERVER[$key] ?? '');
+            if ($value !== '') {
+                return trim(explode(',', $value)[0]);
+            }
+        }
+
+        return '';
+    }
+
     public function isJson(): bool
     {
         return str_contains($this->header('Content-Type', '') ?? '', 'application/json');

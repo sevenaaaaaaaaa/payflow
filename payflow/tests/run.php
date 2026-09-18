@@ -553,6 +553,31 @@ $gsum = $gApp->analyticsService->summary(30);
 check('看板排除沙箱订单', (int) $gsum['paid'] === 0 && (int) $gsum['gmv_cents'] === 0);
 rrmdir($tmpG);
 
+$idleAuth = new \PayFlow\Http\AdminAuth(['admin' => ['username' => 'admin', 'password' => 'x', 'session_key' => 'pf_admin_idle', 'session_idle_minutes' => 1, 'session_days' => 7]]);
+$_SESSION['pf_admin_ok'] = true;
+$_SESSION['pf_admin_login_at'] = time();
+$_SESSION['pf_admin_last'] = time() - 120;
+check('会话空闲超时失效', $idleAuth->attempt(new \PayFlow\Http\Request('GET', '/admin', [], [], [], '')) === false);
+$_SESSION['pf_admin_ok'] = true;
+$_SESSION['pf_admin_login_at'] = time();
+$_SESSION['pf_admin_last'] = time();
+check('会话活跃保持有效', $idleAuth->attempt(new \PayFlow\Http\Request('GET', '/admin', [], [], [], '')) === true);
+
+$nextAuth = new \PayFlow\Http\AdminAuth(['admin' => ['username' => 'admin', 'password' => 'x', 'session_key' => 'pf_admin_next']]);
+$nextAuth->rememberNext('/admin/orders?q=x');
+$nextAuth->rememberNext('/admin/orders');
+check('深链记录并可回跳', $nextAuth->pullNext() === '/admin/orders');
+check('深链一次性消费', $nextAuth->pullNext() === null);
+$nextAuth->rememberNext('//evil.example.com');
+check('外部深链被拒', $nextAuth->pullNext() === null);
+
+$throttle = new \PayFlow\Service\LoginThrottle($gApp->loginAttempts, ['admin' => ['login_max_attempts' => 2, 'login_lock_minutes' => 5]]);
+check('首次失败未锁定', $throttle->failure('admin', '1.2.3.4')['locked'] === false);
+check('达到上限锁定', $throttle->failure('admin', '1.2.3.4')['locked'] === true);
+check('锁定期可查询剩余', $throttle->lockedSeconds('admin', '1.2.3.4') > 0);
+$throttle->clear('admin', '1.2.3.4');
+check('成功后清除锁定', $throttle->lockedSeconds('admin', '1.2.3.4') === 0);
+
 $csrfAuth = new \PayFlow\Http\AdminAuth(['admin' => ['username' => 'admin', 'password' => 'x', 'session_key' => 'pf_admin_test']]);
 $csrfTok = $csrfAuth->csrfToken();
 check('CSRF 令牌可生成', $csrfTok !== '');

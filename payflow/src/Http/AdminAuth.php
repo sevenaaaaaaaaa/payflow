@@ -64,8 +64,67 @@ final class AdminAuth
     public function attempt(Request $request): bool
     {
         $this->bootSession();
+        if (($_SESSION['pf_admin_ok'] ?? false) !== true) {
+            return false;
+        }
+        $now = time();
+        $loginAt = (int) ($_SESSION['pf_admin_login_at'] ?? $now);
+        $last = (int) ($_SESSION['pf_admin_last'] ?? $now);
+        $idle = max(1, (int) Arr::get($this->config, 'admin.session_idle_minutes', 480)) * 60;
+        $absolute = max(1, (int) Arr::get($this->config, 'admin.session_days', 7)) * 86400;
+        if ($now - $last > $idle || $now - $loginAt > $absolute) {
+            $this->destroySession();
 
-        return ($_SESSION['pf_admin_ok'] ?? false) === true;
+            return false;
+        }
+        $_SESSION['pf_admin_last'] = $now;
+
+        return true;
+    }
+
+    /** 记录未登录访问的后台路径，登录成功后回跳。 */
+    public function rememberNext(string $path): void
+    {
+        $this->bootSession();
+        if ($this->safePath($path)) {
+            $_SESSION['pf_next'] = $path;
+        }
+    }
+
+    public function pullNext(): ?string
+    {
+        $this->bootSession();
+        $path = $_SESSION['pf_next'] ?? null;
+        unset($_SESSION['pf_next']);
+
+        return is_string($path) && $this->safePath($path) ? $path : null;
+    }
+
+    private function safePath(string $path): bool
+    {
+        if ($path === '' || !str_starts_with($path, '/') || str_starts_with($path, '//')) {
+            return false;
+        }
+        $base = pf_base_path();
+        if ($base !== '' && $path !== $base && !str_starts_with($path, $base . '/')) {
+            return false;
+        }
+
+        return !str_starts_with($path, pf_url('/admin/login'));
+    }
+
+    private function destroySession(): void
+    {
+        $_SESSION = [];
+        if (!headers_sent() && ini_get('session.use_cookies')) {
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => pf_base_path() !== '' ? pf_base_path() . '/' : '/',
+            ]);
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
     }
 
     public function login(Request $request): bool
@@ -81,6 +140,8 @@ final class AdminAuth
         $_SESSION['pf_admin_ok'] = true;
         $_SESSION['pf_admin_user'] = $user;
         $_SESSION['pf_admin_at'] = time();
+        $_SESSION['pf_admin_login_at'] = time();
+        $_SESSION['pf_admin_last'] = time();
         $_SESSION['pf_csrf'] = bin2hex(random_bytes(16));
 
         return true;
@@ -108,16 +169,7 @@ final class AdminAuth
     public function logout(): void
     {
         $this->bootSession();
-        $_SESSION = [];
-        if (!headers_sent() && ini_get('session.use_cookies')) {
-            setcookie(session_name(), '', [
-                'expires' => time() - 42000,
-                'path' => pf_base_path() !== '' ? pf_base_path() . '/' : '/',
-            ]);
-        }
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
-        }
+        $this->destroySession();
     }
 
     private function verify(string $user, string $pass): bool

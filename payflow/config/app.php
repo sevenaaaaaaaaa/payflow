@@ -12,7 +12,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'PayFlow',
-        'version' => '1.0.5',
+        'version' => '1.0.6',
         'env' => 'production',
         'debug' => false,
         // 部署入口：主域名子路径（nownexts.com/payflow）。若改用独立子域，
@@ -53,6 +53,10 @@ return [
         'password_hash' => '',   // 推荐：password_hash('你的密码', PASSWORD_DEFAULT) 的结果
         'password' => '',        // 备用：明文密码（本地开发方便）
         'session_key' => 'pf_admin',
+        'session_idle_minutes' => 480,   // 空闲超时（分钟）
+        'session_days' => 7,             // 会话绝对有效期（天）
+        'login_max_attempts' => 5,       // 连续失败上限
+        'login_lock_minutes' => 15,      // 触发上限后锁定时长（分钟）
     ],
 
     // 支付通道。enabled=false 的通道不会出现在收银台。

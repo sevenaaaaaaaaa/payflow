@@ -16,6 +16,7 @@ use PayFlow\Domain\EventRepository;
 use PayFlow\Domain\InboundEventRepository;
 use PayFlow\Domain\InvoiceRepository;
 use PayFlow\Domain\LicenseRepository;
+use PayFlow\Domain\LoginAttemptRepository;
 use PayFlow\Domain\OrderRepository;
 use PayFlow\Domain\OutboxRepository;
 use PayFlow\Domain\PaymentLinkRepository;
@@ -37,6 +38,7 @@ use PayFlow\Service\DeliveryService;
 use PayFlow\Service\EntitlementService;
 use PayFlow\Service\InboundEventService;
 use PayFlow\Service\InvoiceService;
+use PayFlow\Service\LoginThrottle;
 use PayFlow\Service\Mailer;
 use PayFlow\Service\Notifier;
 use PayFlow\Service\OrderService;
@@ -73,6 +75,7 @@ final class Application
     public readonly OutboxRepository $outbox;
     public readonly InboundEventRepository $inboundEvents;
     public readonly RateLimitRepository $rateLimits;
+    public readonly LoginAttemptRepository $loginAttempts;
     public readonly PaymentLinkRepository $paymentLinks;
     public readonly CardRepository $cards;
     public readonly VoucherRepository $vouchers;
@@ -86,6 +89,7 @@ final class Application
     public readonly InvoiceService $invoiceService;
     public readonly InboundEventService $inboundEventService;
     public readonly RateLimiter $rateLimiter;
+    public readonly LoginThrottle $loginThrottle;
     public readonly AnalyticsService $analyticsService;
     public readonly PaymentLinkService $paymentLinkService;
     public readonly VoucherService $voucherService;
@@ -122,6 +126,7 @@ final class Application
         $this->outbox = new OutboxRepository($stores);
         $this->inboundEvents = new InboundEventRepository($stores);
         $this->rateLimits = new RateLimitRepository($stores);
+        $this->loginAttempts = new LoginAttemptRepository($stores);
         $this->paymentLinks = new PaymentLinkRepository($stores);
         $this->cards = new CardRepository($stores);
         $this->vouchers = new VoucherRepository($stores);
@@ -140,6 +145,7 @@ final class Application
         $this->analyticsService = new AnalyticsService($this->orders, $this->subscriptions, $this->commissions, $this->customers);
         $this->inboundEventService = new InboundEventService($this->inboundEvents, $this->orders, $this->customers, $this->entitlements, $this->events);
         $this->rateLimiter = new RateLimiter($this->rateLimits, $config);
+        $this->loginThrottle = new LoginThrottle($this->loginAttempts, $config);
         $this->paymentLinkService = new PaymentLinkService($this->paymentLinks, $this->products, $this->events, $baseUrl);
 
         $this->orderService = new OrderService(
