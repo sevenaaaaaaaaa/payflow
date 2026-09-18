@@ -70,19 +70,68 @@ final class Database
                 collection VARCHAR(64) NOT NULL,
                 id VARCHAR(160) NOT NULL,
                 data LONGTEXT NOT NULL,
+                search_text MEDIUMTEXT NULL,
                 created_at VARCHAR(32) NOT NULL,
                 updated_at VARCHAR(32) NOT NULL,
                 PRIMARY KEY (collection, id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            if (!self::hasSearchColumn($pdo, $table)) {
+                $pdo->exec("ALTER TABLE {$table} ADD COLUMN search_text MEDIUMTEXT NULL AFTER data");
+            }
+            self::ensureFulltext($pdo, $table);
         } else {
             $pdo->exec("CREATE TABLE IF NOT EXISTS {$table} (
                 collection TEXT NOT NULL,
                 id TEXT NOT NULL,
                 data TEXT NOT NULL,
+                search_text TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (collection, id)
             )");
+        }
+    }
+
+    /**
+     * 确保 FULLTEXT(ngram) 索引存在（幂等；ngram 兼容中文）。
+     */
+    /** @var array<string,bool> */
+    private static array $fulltextCache = [];
+
+    public static function ensureFulltext(PDO $pdo, ?string $table = null): bool
+    {
+        $table ??= self::table();
+        if (isset(self::$fulltextCache[$table])) {
+            return self::$fulltextCache[$table];
+        }
+        if (!self::hasSearchColumn($pdo, $table)) {
+            return false;
+        }
+        try {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?');
+            $stmt->execute([$table, 'ft_search']);
+            if ((int) $stmt->fetchColumn() === 0) {
+                $pdo->exec("ALTER TABLE {$table} ADD FULLTEXT INDEX ft_search (search_text) WITH PARSER ngram");
+            }
+
+            return self::$fulltextCache[$table] = true;
+        } catch (Throwable $e) {
+            error_log('[PayFlow][schema] FULLTEXT 不可用: ' . $e->getMessage());
+
+            return self::$fulltextCache[$table] = false;
+        }
+    }
+
+    public static function hasSearchColumn(PDO $pdo, ?string $table = null): bool
+    {
+        $table ??= self::table();
+        try {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+            $stmt->execute([$table, 'search_text']);
+
+            return (int) $stmt->fetchColumn() > 0;
+        } catch (Throwable $e) {
+            return false;
         }
     }
 

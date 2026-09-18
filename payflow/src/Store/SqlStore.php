@@ -27,11 +27,46 @@ final class SqlStore implements StoreInterface
     /** @var array<string, array<string, array>> request 级缓存 */
     private array $cache = [];
 
+    private ?bool $fulltext = null;
+
     public function __construct(
         private readonly PDO $pdo,
         private readonly string $collection,
         private readonly string $driver,
     ) {
+    }
+
+    private function fulltextReady(): bool
+    {
+        if ($this->fulltext !== null) {
+            return $this->fulltext;
+        }
+        if ($this->driver !== 'mysql') {
+            return $this->fulltext = false;
+        }
+
+        return $this->fulltext = Database::hasSearchColumn($this->pdo) && Database::ensureFulltext($this->pdo);
+    }
+
+    /**
+     * 构造 BOOLEAN 查询；不可靠时返回 null（走 LIKE 兜底）。
+     */
+    private function booleanQuery(string $term): ?string
+    {
+        $tokens = preg_split('/[\s,]+/u', mb_strtolower(trim($term))) ?: [];
+        $parts = [];
+        foreach ($tokens as $token) {
+            $token = preg_replace('/[+\-><()~*"@]/u', '', $token) ?? '';
+            if ($token === '') {
+                continue;
+            }
+            if (mb_strlen($token) < 2) {
+                return null;
+            }
+            $parts[] = '+' . $token . '*';
+        }
+
+        return $parts === [] ? null : implode(' ', $parts);
     }
 
     public function driver(): string
@@ -267,6 +302,30 @@ final class SqlStore implements StoreInterface
         }
 
         [$or, $params] = $this->buildSearch($fields, $term, ['c' => $this->collection]);
+        $out = [];
+        if ($offset === 0 && $this->fulltextReady() && ($bool = $this->booleanQuery($term)) !== null) {
+            $sql = 'SELECT data FROM ' . Database::table() . ' WHERE collection = :c AND MATCH(search_text) AGAINST (:q IN BOOLEAN MODE)';
+            if ($orderBy !== null && preg_match('/^[A-Za-z0-9_]+$/', $orderBy)) {
+                $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
+                $sql .= " ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, '\$.{$orderBy}')) {$dir}";
+            }
+            if ($limit > 0) {
+                $sql .= ' LIMIT ' . (int) $limit;
+            }
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['c' => $this->collection, 'q' => $bool]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $decoded = json_decode((string) $row['data'], true);
+                if (is_array($decoded)) {
+                    $out[] = $decoded;
+                }
+            }
+            if ($out !== []) {
+                return $out;
+            }
+            // 全文未命中（可能是词中匹配）→ 落到 LIKE 兜底
+        }
+
         $sql = 'SELECT data FROM ' . Database::table() . " WHERE collection = :c AND ({$or})";
         if ($orderBy !== null && preg_match('/^[A-Za-z0-9_]+$/', $orderBy)) {
             $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
@@ -277,7 +336,6 @@ final class SqlStore implements StoreInterface
         }
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
-        $out = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $decoded = json_decode((string) $row['data'], true);
             if (is_array($decoded)) {
@@ -306,6 +364,14 @@ final class SqlStore implements StoreInterface
             }
 
             return $n;
+        }
+        if ($this->fulltextReady() && ($bool = $this->booleanQuery($term)) !== null) {
+            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . Database::table() . ' WHERE collection = :c AND MATCH(search_text) AGAINST (:q IN BOOLEAN MODE)');
+            $stmt->execute(['c' => $this->collection, 'q' => $bool]);
+            $n = (int) $stmt->fetchColumn();
+            if ($n > 0) {
+                return $n;
+            }
         }
         [$or, $params] = $this->buildSearch($fields, $term, ['c' => $this->collection]);
         $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . Database::table() . " WHERE collection = :c AND ({$or})");
@@ -472,6 +538,7 @@ final class SqlStore implements StoreInterface
             : 'INSERT OR REPLACE INTO pf_records (collection, id, data, created_at, updated_at) VALUES (:c, :i, :d, :cr, :up)';
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['c' => $this->collection, 'i' => $id, 'd' => $json, 'cr' => $created, 'up' => $updated]);
+        $this->writeSearchText($id, $json);
 
         $this->cache[$this->collection][$id] = $record;
 
@@ -525,5 +592,19 @@ final class SqlStore implements StoreInterface
         $updated = (string) ($record['updated_at'] ?? $created);
         $stmt = $this->pdo->prepare('INSERT INTO pf_records (collection, id, data, created_at, updated_at) VALUES (:c, :i, :d, :cr, :up)');
         $stmt->execute(['c' => $this->collection, 'i' => $id, 'd' => $json, 'cr' => $created, 'up' => $updated]);
+        $this->writeSearchText($id, $json);
+    }
+
+    private function writeSearchText(string $id, string $json): void
+    {
+        if (!$this->fulltextReady()) {
+            return;
+        }
+        try {
+            $stmt = $this->pdo->prepare('UPDATE ' . Database::table() . ' SET search_text = :s WHERE collection = :c AND id = :i');
+            $stmt->execute(['s' => mb_strtolower($json), 'c' => $this->collection, 'i' => $id]);
+        } catch (\Throwable $e) {
+            // 不影响主流程
+        }
     }
 }

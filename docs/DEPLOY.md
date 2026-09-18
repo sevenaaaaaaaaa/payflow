@@ -18,6 +18,7 @@
 | 应用配置 | `app.base_url=https://nownexts.com/payflow`、`app.base_path=/payflow` |
 | 存储 | **MySQL 主库**（`payflow` 库，表 `pf_records`）→ SQLite 辅助回退 → JSON 兜底 |
 | 运行时目录 | `data/`（配置 + 旧 JSON 备份 + SQLite 回退库）、`uploads/`（数字交付文件；.htaccess 已阻断直连） |
+| 结构迁移 | `php payflow/bin/schema.php`（补 `search_text` 列、回填、建 FULLTEXT(ngram) 索引，幂等） |
 | 定时任务 | crontab：`*/15 * * * * cd /www/wwwroot/payflow && /www/server/php/83/bin/php bin/cron.php >> data/cron.log 2>&1` |
 
 > 用 `Alias` 挂载后，`/payflow` 在 URL→文件映射阶段就指向了应用目录，主站 docroot 的
