@@ -417,12 +417,14 @@ final class OrderService
     {
         return [
             'order_no' => $order['order_no'],
+            'product_id' => $order['product_id'] ?? null,
             'status' => $order['status'],
             'status_label' => OrderStateMachine::label((string) $order['status']),
             'subtotal_cents' => (int) ($order['subtotal_cents'] ?? $order['amount_cents']),
             'discount_cents' => (int) ($order['discount_cents'] ?? 0),
             'coupon_code' => $order['coupon_code'] ?? null,
             'amount_cents' => $order['amount_cents'],
+            'amount_number' => round(((int) $order['amount_cents']) / 100, 2),
             'amount' => Money::yuan((int) $order['amount_cents']),
             'currency' => $order['currency'] ?? 'CNY',
             'product_name' => $order['product_name'] ?? '',
