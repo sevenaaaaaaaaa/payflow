@@ -316,7 +316,7 @@ final class AdminController
 
         return Response::html(View::render('admin/webhooks', [
             'deliveries' => $this->app->webhookDeliveries->recent(100),
-            'configured' => (bool) \PayFlow\Support\Arr::get($this->app->config, 'webhooks.order.enabled', false),
+            'targets' => $this->app->webhooks->targets(),
         ]));
     }
 

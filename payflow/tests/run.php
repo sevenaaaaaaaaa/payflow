@@ -552,6 +552,24 @@ check('CSRF 令牌可生成', $csrfTok !== '');
 check('CSRF 正确令牌通过', $csrfAuth->verifyCsrf(new \PayFlow\Http\Request('POST', '/admin/products', [], ['_csrf' => $csrfTok], [], '')));
 check('CSRF 错误令牌拒绝', !$csrfAuth->verifyCsrf(new \PayFlow\Http\Request('POST', '/admin/products', [], [], ['X-CSRF-Token' => 'bad'], '')));
 
+
+echo "\n[多目标 Webhook]\n";
+$tmpW = sys_get_temp_dir() . '/pf-wh-' . bin2hex(random_bytes(4));
+$wCfg = $cpCfg;
+$wCfg['data_dir'] = $tmpW;
+$wCfg['webhooks'] = ['endpoints' => [
+    ['name' => 'a', 'url' => 'http://127.0.0.1:9/a', 'secret' => 's1', 'enabled' => true, 'events' => ['order.paid']],
+    ['name' => 'b', 'url' => 'http://127.0.0.1:9/b', 'secret' => 's2', 'enabled' => true, 'events' => ['*']],
+], 'max_attempts' => 1];
+$wApp = new \PayFlow\Application($wCfg);
+$wApp->webhooks->dispatch('order.paid', ['order_no' => 'X1', 'email' => 'w@test.com']);
+$wApp->webhooks->dispatch('order.refunded', ['order_no' => 'X2', 'email' => 'w@test.com']);
+$byEndpoint = [];
+foreach ($wApp->webhookDeliveries->all() as $d) { $byEndpoint[(string) $d['endpoint']][] = (string) $d['event']; }
+check('多目标投递 + 事件过滤', count($byEndpoint['a'] ?? []) === 1 && count($byEndpoint['b'] ?? []) === 2);
+check('Outbox 每事件留痕一次', count($wApp->outbox->all()) === 2);
+rrmdir($tmpW);
+
 echo "\n" . str_repeat('─', 40) . "\n";
 echo "通过 {$passed} · 失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

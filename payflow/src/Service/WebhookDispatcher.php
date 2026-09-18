@@ -10,11 +10,11 @@ use PayFlow\Support\Arr;
 use PayFlow\Support\HttpClient;
 
 /**
- * 出站事件：统一信封 + Outbox 留痕 + HMAC 投递 + 退避重试。
+ * 出站事件：统一信封 + Outbox 留痕 + 多目标投递 + HMAC + 退避重试。
  *
- * 信封（兼容旧字段 event/sent_at）：
- *   { id, type, version, occurred_at, source, subject{email,external_id,tenant},
- *     data, idempotency_key, event, sent_at }
+ * targets 解析优先级：
+ *   1) webhooks.endpoints（多目标）：[{ name, url, secret, enabled, events:['*'] }]
+ *   2) 兼容旧配置：webhooks.order = { enabled, url, secret }（视为单一目标）
  */
 final class WebhookDispatcher
 {
@@ -25,29 +25,51 @@ final class WebhookDispatcher
     ) {
     }
 
-    private function url(): string
-    {
-        return (string) (Arr::get($this->config, 'order.url', '') ?: Arr::get($this->config, 'url', ''));
-    }
-
-    private function secret(): string
-    {
-        return (string) (Arr::get($this->config, 'order.secret', '') ?: Arr::get($this->config, 'secret', ''));
-    }
-
     private function enabled(): bool
     {
-        return (bool) (Arr::get($this->config, 'order.enabled', false) || Arr::get($this->config, 'enabled', false)) && $this->url() !== '';
+        return $this->targets() !== [];
+    }
+
+    /**
+     * @return list<array{name:string,url:string,secret:string,events:list<string>}>
+     */
+    public function targets(): array
+    {
+        $out = [];
+        foreach ((array) Arr::get($this->config, 'endpoints', []) as $i => $e) {
+            if (!is_array($e) || empty($e['enabled']) || empty($e['url'])) {
+                continue;
+            }
+            $out[] = [
+                'name' => (string) ($e['name'] ?? ('endpoint' . ($i + 1))),
+                'url' => (string) $e['url'],
+                'secret' => (string) ($e['secret'] ?? ''),
+                'events' => array_map('strval', (array) ($e['events'] ?? ['*'])),
+            ];
+        }
+        if ($out !== []) {
+            return $out;
+        }
+
+        // 兼容旧配置
+        $legacyEnabled = (bool) (Arr::get($this->config, 'order.enabled', false) || Arr::get($this->config, 'enabled', false));
+        $legacyUrl = (string) (Arr::get($this->config, 'order.url', '') ?: Arr::get($this->config, 'url', ''));
+        if ($legacyEnabled && $legacyUrl !== '') {
+            $out[] = [
+                'name' => 'default',
+                'url' => $legacyUrl,
+                'secret' => (string) (Arr::get($this->config, 'order.secret', '') ?: Arr::get($this->config, 'secret', '')),
+                'events' => ['*'],
+            ];
+        }
+
+        return $out;
     }
 
     private function envelope(string $type, array $payload): array
     {
         $now = date('c');
-        $subject = [
-            'email' => strtolower((string) ($payload['email'] ?? '')) ?: null,
-            'external_id' => $payload['external_id'] ?? null,
-            'tenant' => $payload['tenant'] ?? null,
-        ];
+        $isTest = ($payload['test'] ?? false) === true;
         $discriminator = (string) (
             $payload['order_no']
             ?? $payload['id']
@@ -57,19 +79,20 @@ final class WebhookDispatcher
             ?? bin2hex(random_bytes(6))
         );
 
-        $isTest = ($payload['test'] ?? false) === true;
-
         return [
             'id' => 'evt_' . bin2hex(random_bytes(10)),
             'type' => $type,
             'version' => 1,
             'occurred_at' => $now,
             'source' => 'payflow',
-            'subject' => $subject,
+            'subject' => [
+                'email' => strtolower((string) ($payload['email'] ?? '')) ?: null,
+                'external_id' => $payload['external_id'] ?? null,
+                'tenant' => $payload['tenant'] ?? null,
+            ],
             'data' => $payload,
             'mode' => $isTest ? 'test' : 'live',
             'idempotency_key' => $type . ':' . $discriminator . ':1',
-            // 兼容旧字段
             'event' => $type,
             'sent_at' => $now,
         ];
@@ -79,7 +102,7 @@ final class WebhookDispatcher
     {
         $envelope = $this->envelope($event, $payload);
 
-        // Outbox：无论 webhook 是否启用都留痕，供增量拉取
+        // Outbox：无论是否启用投递都留痕，供增量拉取
         $this->outbox->insert([
             'type' => $envelope['type'],
             'version' => $envelope['version'],
@@ -89,25 +112,26 @@ final class WebhookDispatcher
             'event_id' => $envelope['id'],
         ]);
 
-        if (!$this->enabled()) {
-            return;
+        foreach ($this->targets() as $target) {
+            if (!$this->matches($target['events'], $event)) {
+                continue;
+            }
+            $delivery = $this->deliveries->insert([
+                'event' => $event,
+                'endpoint' => $target['name'],
+                'url' => $target['url'],
+                'secret' => $target['secret'],
+                'payload' => $payload,
+                'envelope' => $envelope,
+                'status' => 'pending',
+                'attempts' => 0,
+                'next_attempt_at' => date('c'),
+            ]);
+            $this->attempt($delivery);
         }
-
-        $delivery = $this->deliveries->insert([
-            'event' => $event,
-            'url' => $this->url(),
-            'payload' => $payload,
-            'envelope' => $envelope,
-            'status' => 'pending',
-            'attempts' => 0,
-            'next_attempt_at' => date('c'),
-        ]);
-        $this->attempt($delivery);
     }
 
     /**
-     * cron：重试到期的投递。
-     *
      * @return array{retried:int, succeeded:int}
      */
     public function retryDue(): array
@@ -134,13 +158,19 @@ final class WebhookDispatcher
         $this->attempt($this->deliveries->find($deliveryId) ?? $delivery);
     }
 
+    private function matches(array $events, string $event): bool
+    {
+        return in_array('*', $events, true) || in_array($event, $events, true);
+    }
+
     private function attempt(array $delivery): array
     {
         $envelope = is_array($delivery['envelope'] ?? null)
             ? $delivery['envelope']
             : $this->envelope((string) $delivery['event'], (array) ($delivery['payload'] ?? []));
         $body = (string) json_encode($envelope, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $signature = hash_hmac('sha256', $body, $this->secret());
+        $secret = (string) ($delivery['secret'] ?? Arr::get($this->config, 'order.secret', ''));
+        $signature = hash_hmac('sha256', $body, $secret);
         $attempts = ((int) ($delivery['attempts'] ?? 0)) + 1;
         $maxAttempts = max(1, (int) Arr::get($this->config, 'max_attempts', 5));
 

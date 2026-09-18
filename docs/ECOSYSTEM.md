@@ -67,7 +67,11 @@ PayFlow 订单公开字段补 `product_id` 与数值金额。
 
 **联调验证（2026-09-18）**：PayFlow 商品 ↔ LearnFlow 课程映射后，下单支付 → Webhook 投递 200 → LearnFlow 学籍建立（幂等）。
 
-**反向通道（规划）**：LearnFlow 退课/退款 → `POST /api/v1/events`（`type: entitlement.revoke`，HMAC + 幂等键）→ PayFlow 撤销权益。
+**反向通道（已通）**：LearnFlow `enroll_remove` → `POST /api/v1/events`（`type: entitlement.revoke`，Bearer + 幂等键）→ PayFlow 撤销对应订单权益。
+- LearnFlow 侧：`lib/PayFlow.php` 的 `payflow_revoke_entitlement()`；`enroll_remove()` 在课程已映射 PayFlow 商品时自动触发。
+- 凭据：PayFlow 侧新建 Key `learnflow`（Bearer），写入 LearnFlow `data/settings.json → payflow.api_key`。
+
+**多目标投递**：PayFlow Webhook 支持 `webhooks.endpoints = [{name,url,secret,enabled,events}]`（每目标独立密钥与事件过滤），兼容旧 `webhooks.order` 单目标。后台「Webhook」页展示目标与逐条投递（含 endpoint）。
 
 ## 四、互通不变量（不可协商）
 

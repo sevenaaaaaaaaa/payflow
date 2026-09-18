@@ -2,6 +2,13 @@
 
 版本号见 `payflow/config/app.php → app.version`，对外经 `GET /api/v1/meta` 暴露。
 
+## [1.0.3] — 2026-09-18
+
+- 多目标 Webhook：`webhooks.endpoints`（每目标 URL/密钥/事件过滤），兼容单目标；后台展示目标与 endpoint
+- LearnFlow 反向通道：退课 → `entitlement.revoke` 入站，PayFlow 撤销权益（幂等）
+- PayFlow 订单公开字段补 `product_id` 与数值金额（供映射）
+- 自检 118 项
+
 ## [1.0.2] — 2026-09-18
 
 - 弃用面：`X-API-Version` + `Deprecation/Sunset/Link` 头（`config.api.deprecations`）

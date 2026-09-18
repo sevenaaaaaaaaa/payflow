@@ -12,7 +12,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'PayFlow',
-        'version' => '1.0.2',
+        'version' => '1.0.3',
         'env' => 'production',
         'debug' => false,
         // 部署入口：主域名子路径（nownexts.com/payflow）。若改用独立子域，
@@ -185,8 +185,10 @@ return [
         'notify_admin' => '',       // 收款/退款抄送管理员，可留空
     ],
 
-    // 出站 Webhook（订单/订阅/佣金事件推送给 UserLoop / 任意 MA）
+    // 出站 Webhook（多目标；兼容旧的 webhooks.order 单目标）
+    // endpoints 例：['name'=>'learnflow','url'=>'https://.../payflow-webhook.php','secret'=>'xxx','enabled'=>true,'events'=>['order.paid','order.refunded']]
     'webhooks' => [
+        'endpoints' => [],
         'order' => [
             'enabled' => false,
             'url' => '',
