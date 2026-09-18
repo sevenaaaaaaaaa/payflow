@@ -38,6 +38,8 @@ if ($driver === 'mysql') {
     $updated = $pdo->exec("UPDATE {$table} SET search_text = LOWER(data) WHERE search_text IS NULL");
     echo "  回填 search_text: " . ($updated === false ? '0' : (string) $updated) . " 行\n";
     echo '  FULLTEXT 索引: ' . (Database::ensureFulltext($pdo, $table) ? '就绪' : '不可用（将回退 LIKE）') . "\n";
+    $n = $pdo->exec("UPDATE {$table} SET data = JSON_SET(data, '$.test', false), search_text = LOWER(JSON_SET(data, '$.test', false)) WHERE collection = 'orders' AND JSON_EXTRACT(data, '$.test') IS NULL");
+    echo '  回填 orders.test: ' . ($n === false ? '0' : (string) $n) . " 行\n";
 } elseif ($driver === 'sqlite') {
     $cols = $pdo->query("PRAGMA table_info({$table})")->fetchAll(PDO::FETCH_ASSOC);
     $has = false;

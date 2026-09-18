@@ -182,7 +182,8 @@ final class JsonStore implements StoreInterface
     private static function matchConditions(array $r, array $conditions): bool
     {
         foreach ($conditions as $c) {
-            $actual = (string) ($r[$c['field']] ?? '');
+            $raw = $r[$c['field']] ?? '';
+            $actual = is_bool($raw) ? ($raw ? 'true' : 'false') : (string) $raw;
             $value = $c['value'];
             $ok = match ($c['op']) {
                 '=' => $actual === (string) $value,

@@ -238,8 +238,10 @@ final class AdminController
         }
         $keyId = (string) \PayFlow\Support\Arr::get($this->app->config, 'api.key_prefix', 'pfk_') . bin2hex(random_bytes(8));
         $secret = bin2hex(random_bytes(24));
+        $mode = $request->string('mode', 'live') === 'test' ? 'test' : 'live';
         $this->app->apiKeys->insert([
             'name' => $request->string('name', '未命名密钥'),
+            'mode' => $mode,
             'key_id' => $keyId,
             'secret_hash' => password_hash($secret, PASSWORD_DEFAULT),
             'secret_signing' => $secret,
@@ -666,6 +668,7 @@ final class AdminController
             'subscription_due' => $this->app->subscriptionService->renewDue(),
             'commissions_matured' => $this->app->commissionService->mature(),
             'webhooks_retried' => $this->app->webhooks->retryDue(),
+            'rate_limits_pruned' => $this->app->rateLimiter->prune(),
             'events_pruned' => $this->app->events->prune(
                 (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_retention_days', 180),
                 (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_max_rows', 50000),

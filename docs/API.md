@@ -24,6 +24,12 @@ X-PF-Signature: hex( HMAC_SHA256( secret, timestamp + "\n" + METHOD + "\n" + PAT
 Authorization: Bearer <key_id>.<secret>
 ```
 
+## 限流与沙箱
+
+- 限流：每 Key 每分钟请求上限（默认 120，`config.api.rate_limit`）。超限返回 **429** + `Retry-After` + `X-RateLimit-*`。
+- 沙箱：后台新建「沙箱」密钥；用沙箱 Key 下单会**强制人工通道**、订单标记 `test=true`、
+  事件信封 `mode=test` 且带 `X-PayFlow-Mode: test`。看板统计**排除**沙箱订单。
+
 ## 端点
 
 | 方法 | 路径 | 说明 |
@@ -33,6 +39,7 @@ Authorization: Bearer <key_id>.<secret>
 | GET | `/api/v1/orders/{orderNo}` | 查询订单 |
 | GET/POST | `/api/v1/coupons/validate` | 优惠券试算（product, code, email?） |
 | GET | `/api/v1/analytics/summary?days=30` | 经营汇总（GMV/漏斗/订阅/佣金/渠道） |
+| GET | `/api/v1/version` | 版本与弃用面 |
 | GET | `/api/v1/events?since=&limit=` | 增量拉取出站事件（Outbox；游标为上一批最后 `occurred_at`） |
 | POST | `/api/v1/events` | 入站事件（`idempotency_key` 去重；支持 `entitlement.revoke` / `customer.update`） |
 | GET/POST | `/api/v1/licenses/validate` | 校验 License 密钥（body/query: license_key） |

@@ -24,6 +24,7 @@ $report = [
     'subscription_due' => $app->subscriptionService->renewDue(),
     'commissions_matured' => $app->commissionService->mature(),
     'webhooks_retried' => $app->webhooks->retryDue(),
+    'rate_limits_pruned' => $app->rateLimiter->prune(),
     'events_pruned' => $app->events->prune(
         (int) \PayFlow\Support\Arr::get($config, 'maintenance.events_retention_days', 180),
         (int) \PayFlow\Support\Arr::get($config, 'maintenance.events_max_rows', 50000),

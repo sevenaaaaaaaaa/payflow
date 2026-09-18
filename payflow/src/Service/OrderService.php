@@ -106,6 +106,7 @@ final class OrderService
             'referral_id' => $referralAttr['referral_id'],
             'external_id' => $options['external_id'] ?? null,
             'tenant' => $options['tenant'] ?? null,
+            'test' => (bool) ($options['test'] ?? false),
         ]);
 
         if ($coupon !== null) {
@@ -185,6 +186,7 @@ final class OrderService
             'payment_link_id' => $link['id'],
             'referral_code' => $referralAttr['referral_code'],
             'referral_id' => $referralAttr['referral_id'],
+            'test' => (bool) ($options['test'] ?? false),
         ]);
 
         if ($coupon !== null) {
@@ -232,6 +234,7 @@ final class OrderService
             'entitlement' => $product['entitlement'] ?? null,
             'channel' => 'voucher',
             'voucher_code' => $voucher['code'] ?? null,
+            'test' => false,
         ]);
         $this->orders->appendEvent((string) $order['id'], ['type' => 'voucher.redeemed', 'code' => $voucher['code'] ?? null]);
         $this->events->log('voucher.redeemed', ['order_id' => $order['id'], 'product_id' => $product['id'], 'code' => $voucher['code'] ?? null]);
@@ -429,6 +432,7 @@ final class OrderService
             'email' => $order['email'] ?? '',
             'external_id' => $order['external_id'] ?? null,
             'tenant' => $order['tenant'] ?? null,
+            'test' => (bool) ($order['test'] ?? false),
         ];
     }
 }

@@ -513,6 +513,39 @@ $pruned = $mtApp->events->prune(30, 3);
 check('事件按天数+行数清理', $pruned >= 2 && count($mtApp->events->all()) <= 3, "pruned={$pruned} left=" . count($mtApp->events->all()));
 rrmdir($tmpMt);
 
+
+echo "\n[平台治理 · 限流/沙箱/版本]\n";
+$tmpG = sys_get_temp_dir() . '/pf-gov-' . bin2hex(random_bytes(4));
+$gCfg = $cpCfg;
+$gCfg['data_dir'] = $tmpG;
+$gCfg['api'] = ['enabled' => true, 'key_prefix' => 'pfk_', 'rate_limit' => ['enabled' => true, 'per_minute' => 100]];
+$gApp = new \PayFlow\Application($gCfg);
+$gApp->products->create(['name' => '治理品', 'slug' => 'gov', 'type' => 'one_time', 'amount_cents' => 2000, 'entitlement' => ['kind' => 'content', 'items' => []]]);
+$gid = (string) $gApp->products->findBySlug('gov')['id'];
+$kid = 'pfk_govtest';
+$sec = 'govsecret';
+$gApp->apiKeys->insert(['name' => 'gov', 'key_id' => $kid, 'secret_hash' => password_hash($sec, PASSWORD_DEFAULT), 'secret_signing' => $sec, 'active' => true, 'mode' => 'test']);
+
+$rl = new \PayFlow\Service\RateLimiter($gApp->rateLimits, ['api' => ['rate_limit' => ['enabled' => true, 'per_minute' => 2]]]);
+check('限流前两次允许', $rl->check('k')['allowed'] === true && $rl->check('k')['allowed'] === true);
+check('限流第三次拒绝', $rl->check('k')['allowed'] === false);
+
+$ctrl = new \PayFlow\Http\Controller\ApiController($gApp);
+$vreq = new \PayFlow\Http\Request('GET', '/api/v1/version', [], [], ['Authorization' => 'Bearer ' . $kid . '.' . $sec], '');
+$vresp = $ctrl->version($vreq);
+$vbody = json_decode($vresp->body, true);
+check('版本端点返回 API 版本与模式', ($vbody['api']['current'] ?? '') === 'v1' && ($vbody['mode'] ?? '') === 'test');
+
+$creq = new \PayFlow\Http\Request('POST', '/api/v1/checkout', [], ['product' => $gid, 'email' => 'gov@test.com', 'channel' => 'manual'], ['Authorization' => 'Bearer ' . $kid . '.' . $sec], '');
+$cresp = $ctrl->checkout($creq);
+$cbody = json_decode($cresp->body, true);
+check('沙箱下单标记 test', ($cbody['order']['test'] ?? false) === true);
+$gorder = $gApp->orders->findByOrderNo((string) ($cbody['order']['order_no'] ?? ''));
+$gApp->orderService->markPaid((string) $gorder['id'], 'G1', (int) $gorder['amount_cents'], []);
+$gsum = $gApp->analyticsService->summary(30);
+check('看板排除沙箱订单', (int) $gsum['paid'] === 0 && (int) $gsum['gmv_cents'] === 0);
+rrmdir($tmpG);
+
 echo "\n" . str_repeat('─', 40) . "\n";
 echo "通过 {$passed} · 失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

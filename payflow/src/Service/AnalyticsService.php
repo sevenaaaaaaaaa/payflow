@@ -30,7 +30,8 @@ final class AnalyticsService
     public function summary(int $days = 30): array
     {
         $since = date('c', time() - $days * 86400);
-        $inRange = [['field' => 'created_at', 'op' => '>=', 'value' => $since]];
+        $notTest = ['field' => 'test', 'op' => '!=', 'value' => 'true'];
+        $inRange = [['field' => 'created_at', 'op' => '>=', 'value' => $since], $notTest];
         $paidLike = array_merge($inRange, [['field' => 'status', 'op' => 'in', 'value' => ['paid', 'delivered']]]);
 
         $created = $this->one($this->orders->aggregate($inRange))['count'];
@@ -96,6 +97,7 @@ final class AnalyticsService
         $rows = $this->orders->groupByDay('created_at', [
             ['field' => 'created_at', 'op' => '>=', 'value' => $since],
             ['field' => 'status', 'op' => 'in', 'value' => ['paid', 'delivered']],
+            ['field' => 'test', 'op' => '!=', 'value' => 'true'],
         ], 'amount_cents');
 
         $byDate = [];

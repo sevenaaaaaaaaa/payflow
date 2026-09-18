@@ -42,10 +42,11 @@
 - [ ] 重放保护与去重（`idempotency_key` 落库，TTL）
 
 ### H3.3 身份与治理
-- [ ] 统一主体：`subject{ email, external_id, tenant }`；PayFlow 现有 `email` 为主，补 `external_id`
-- [ ] 限流与配额（每 Key QPS/日配额，超限 429）
-- [ ] 沙箱：test Key + manual 通道，事件不触达真实下游
-- [ ] 可观测：每 Key 请求量（已有 `requests`）、事件投递日志（已有）、错误率
+- [x] 统一主体：`subject{ email, external_id, tenant }`（结账可带，客户/订单落库）
+- [x] 限流（每 Key 每分钟，超限 429 + `Retry-After`/`X-RateLimit-*`）
+- [x] 沙箱：test Key + 强制人工通道 + `mode=test` 事件，看板排除
+- [x] 版本/弃用面：`GET /api/v1/version`
+- [ ] 日配额、可观测扩展（错误率面板）
 
 ## 四、互通不变量（不可协商）
 

@@ -2,6 +2,12 @@
 
 版本号见 `payflow/config/app.php → app.version`，对外经 `GET /api/v1/meta` 暴露。
 
+## [1.0.1] — 2026-09-18
+
+- 互通：统一事件信封 + Outbox 增量拉取 + 入站事件（幂等）+ `subject.external_id/tenant`
+- 自进化：`bin/propose.php`（AI 提议，人工批准）+ 审计接入 CI
+- 治理：每 Key 限流（429/`Retry-After`/`X-RateLimit-*`）、沙箱 Key、`GET /api/v1/version`
+
 ## [1.0.0] — 2026-09-18
 
 首个可独立运营版本。

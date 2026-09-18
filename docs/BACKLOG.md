@@ -26,9 +26,9 @@
 
 | # | 事项 | 类 | 状态 |
 |---|---|---|---|
-| 6 | 每 Key 限流/配额（429） | 🟦 | ⬜ |
-| 7 | 沙箱（test Key + manual 通道） | 🟦 | ⬜ |
-| 8 | 弃用策略（Deprecation/Sunset 头）+ `/api/v1/version` | 🟦 | ⬜ |
+| 6 | 每 Key 限流（429） | 🟦 | ✅ |
+| 7 | 沙箱（test Key + manual 通道 + mode=test） | 🟦 | ✅ |
+| 8 | 版本面 `/api/v1/version`（弃用头待补） | 🟦 | 🟡 |
 | 9 | 审计页服务端分页 | 🟢 | ⬜ |
 | 10 | 后台写操作 CSRF token | 🟦 | ⬜ |
 

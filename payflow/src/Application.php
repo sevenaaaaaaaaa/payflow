@@ -20,6 +20,7 @@ use PayFlow\Domain\OrderRepository;
 use PayFlow\Domain\OutboxRepository;
 use PayFlow\Domain\PaymentLinkRepository;
 use PayFlow\Domain\PayoutRepository;
+use PayFlow\Domain\RateLimitRepository;
 use PayFlow\Domain\ProductRepository;
 use PayFlow\Domain\RedemptionRepository;
 use PayFlow\Domain\ReferralRepository;
@@ -40,6 +41,7 @@ use PayFlow\Service\Mailer;
 use PayFlow\Service\Notifier;
 use PayFlow\Service\OrderService;
 use PayFlow\Service\PaymentLinkService;
+use PayFlow\Service\RateLimiter;
 use PayFlow\Service\ReferralService;
 use PayFlow\Service\SubscriptionService;
 use PayFlow\Service\VoucherService;
@@ -70,6 +72,7 @@ final class Application
     public readonly InvoiceRepository $invoices;
     public readonly OutboxRepository $outbox;
     public readonly InboundEventRepository $inboundEvents;
+    public readonly RateLimitRepository $rateLimits;
     public readonly PaymentLinkRepository $paymentLinks;
     public readonly CardRepository $cards;
     public readonly VoucherRepository $vouchers;
@@ -82,6 +85,7 @@ final class Application
     public readonly ApiAuth $apiAuth;
     public readonly InvoiceService $invoiceService;
     public readonly InboundEventService $inboundEventService;
+    public readonly RateLimiter $rateLimiter;
     public readonly AnalyticsService $analyticsService;
     public readonly PaymentLinkService $paymentLinkService;
     public readonly VoucherService $voucherService;
@@ -117,6 +121,7 @@ final class Application
         $this->invoices = new InvoiceRepository($stores);
         $this->outbox = new OutboxRepository($stores);
         $this->inboundEvents = new InboundEventRepository($stores);
+        $this->rateLimits = new RateLimitRepository($stores);
         $this->paymentLinks = new PaymentLinkRepository($stores);
         $this->cards = new CardRepository($stores);
         $this->vouchers = new VoucherRepository($stores);
@@ -134,6 +139,7 @@ final class Application
         $this->invoiceService = new InvoiceService($config, $this->invoices, $this->events, $baseUrl);
         $this->analyticsService = new AnalyticsService($this->orders, $this->subscriptions, $this->commissions, $this->customers);
         $this->inboundEventService = new InboundEventService($this->inboundEvents, $this->orders, $this->customers, $this->entitlements, $this->events);
+        $this->rateLimiter = new RateLimiter($this->rateLimits, $config);
         $this->paymentLinkService = new PaymentLinkService($this->paymentLinks, $this->products, $this->events, $baseUrl);
 
         $this->orderService = new OrderService(

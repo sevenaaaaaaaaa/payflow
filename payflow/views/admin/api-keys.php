@@ -9,7 +9,11 @@ require __DIR__ . '/../partials/admin-head.php';
     <p class="pf-muted" style="margin-top:6px">用于对外 API 与矩阵产品互通（HMAC 或 Bearer，见 <span class="pf-mono">docs/API.md</span>）。</p>
   </div>
   <form method="post" action="<?= pf_url('/admin/api-keys/new') ?>" class="pf-row-between" style="gap:8px">
-    <input class="pf-input" name="name" placeholder="用途备注" style="width:180px">
+    <input class="pf-input" name="name" placeholder="用途备注" style="width:160px">
+    <select class="pf-select" name="mode" style="width:110px">
+      <option value="live">正式</option>
+      <option value="test">沙箱</option>
+    </select>
     <button class="pf-btn" type="submit">新建密钥</button>
   </form>
 </section>
@@ -24,11 +28,12 @@ secret: <?= pf_e((string) $newKey['secret']) ?></div>
 
 <div class="pf-card">
   <table class="pf-table">
-    <thead><tr><th>名称</th><th>Key ID</th><th>请求数</th><th>最近使用</th><th>状态</th><th></th></tr></thead>
+    <thead><tr><th>名称</th><th>模式</th><th>Key ID</th><th>请求数</th><th>最近使用</th><th>状态</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($keys as $key): ?>
       <tr>
         <td><?= pf_e((string) $key['name']) ?></td>
+        <td><span class="pf-pill <?= ($key['mode'] ?? 'live') === 'test' ? 'warn' : 'ok' ?>"><?= ($key['mode'] ?? 'live') === 'test' ? '沙箱' : '正式' ?></span></td>
         <td class="pf-mono"><?= pf_e((string) $key['key_id']) ?></td>
         <td><?= (int) ($key['requests'] ?? 0) ?></td>
         <td class="pf-faint"><?= pf_e((string) ($key['last_used_at'] ?? '—')) ?></td>
@@ -42,7 +47,7 @@ secret: <?= pf_e((string) $newKey['secret']) ?></div>
         </td>
       </tr>
     <?php endforeach; ?>
-    <?php if ($keys === []): ?><tr><td colspan="6" class="pf-faint">还没有密钥</td></tr><?php endif; ?>
+    <?php if ($keys === []): ?><tr><td colspan="7" class="pf-faint">还没有密钥</td></tr><?php endif; ?>
     </tbody>
   </table>
 </div>

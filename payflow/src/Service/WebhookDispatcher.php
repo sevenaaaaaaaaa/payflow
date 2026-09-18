@@ -57,6 +57,8 @@ final class WebhookDispatcher
             ?? bin2hex(random_bytes(6))
         );
 
+        $isTest = ($payload['test'] ?? false) === true;
+
         return [
             'id' => 'evt_' . bin2hex(random_bytes(10)),
             'type' => $type,
@@ -65,6 +67,7 @@ final class WebhookDispatcher
             'source' => 'payflow',
             'subject' => $subject,
             'data' => $payload,
+            'mode' => $isTest ? 'test' : 'live',
             'idempotency_key' => $type . ':' . $discriminator . ':1',
             // 兼容旧字段
             'event' => $type,
@@ -147,6 +150,7 @@ final class WebhookDispatcher
                 'X-PayFlow-Event' => (string) ($envelope['type'] ?? $delivery['event']),
                 'X-PayFlow-Event-Id' => (string) ($envelope['id'] ?? ''),
                 'X-PayFlow-Idempotency-Key' => (string) ($envelope['idempotency_key'] ?? ''),
+                'X-PayFlow-Mode' => (string) ($envelope['mode'] ?? 'live'),
                 'X-PayFlow-Signature' => $signature,
             ], 10);
             $ok = $response['status'] >= 200 && $response['status'] < 300;

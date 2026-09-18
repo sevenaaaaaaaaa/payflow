@@ -18,14 +18,49 @@ final class ApiController
     {
     }
 
+    private ?array $currentKey = null;
+
     private function authorize(Request $request): ?Response
     {
         $result = $this->app->apiAuth->authenticate($request);
         if (isset($result['error'])) {
             return Response::json(['ok' => false, 'error' => $result['error']], 401);
         }
+        $this->currentKey = $result['key'] ?? null;
+
+        $rl = $this->app->rateLimiter->check((string) ($this->currentKey['id'] ?? ''));
+        if (!($rl['allowed'] ?? true)) {
+            return new Response(
+                (string) json_encode(['ok' => false, 'error' => '请求过于频繁（限流）'], JSON_UNESCAPED_UNICODE),
+                429,
+                [
+                    'Content-Type' => 'application/json; charset=utf-8',
+                    'Retry-After' => (string) max(1, (int) $rl['reset'] - time()),
+                    'X-RateLimit-Limit' => (string) $rl['limit'],
+                    'X-RateLimit-Remaining' => '0',
+                ],
+            );
+        }
 
         return null;
+    }
+
+    /**
+     * 版本与弃用面：GET /api/v1/version
+     */
+    public function version(Request $request): Response
+    {
+        if ($denied = $this->authorize($request)) {
+            return $denied;
+        }
+
+        return Response::json([
+            'ok' => true,
+            'product' => 'PayFlow',
+            'version' => (string) \PayFlow\Support\Arr::get($this->app->config, 'app.version', '1.0.0'),
+            'api' => ['current' => 'v1', 'min_supported' => 'v1', 'deprecated' => []],
+            'mode' => (string) ($this->currentKey['mode'] ?? 'live'),
+        ]);
     }
 
     /**
@@ -45,6 +80,10 @@ final class ApiController
             'role' => '收款域（订单事实源 + 现金流中枢）',
             'base_url' => $base,
             'api_base' => $base . '/api/v1',
+            'rate_limit' => [
+                'enabled' => (bool) \PayFlow\Support\Arr::get($this->app->config, 'api.rate_limit.enabled', true),
+                'per_minute' => (int) \PayFlow\Support\Arr::get($this->app->config, 'api.rate_limit.per_minute', 120),
+            ],
             'auth' => [
                 'bearer' => 'Authorization: Bearer <key_id>.<secret>',
                 'hmac' => [
@@ -60,6 +99,7 @@ final class ApiController
             ],
             'endpoints' => [
                 ['method' => 'GET', 'path' => '/api/v1/meta', 'desc' => '能力清单'],
+                ['method' => 'GET', 'path' => '/api/v1/version', 'desc' => '版本与弃用面'],
                 ['method' => 'GET', 'path' => '/api/v1/products', 'desc' => '在售商品'],
                 ['method' => 'POST', 'path' => '/api/v1/checkout', 'desc' => '创建订单并返回支付链接'],
                 ['method' => 'GET', 'path' => '/api/v1/orders/{orderNo}', 'desc' => '查询订单'],
@@ -117,8 +157,11 @@ final class ApiController
         if ($product === null) {
             return Response::json(['ok' => false, 'error' => '商品不存在'], 404);
         }
+        $mode = (string) ($this->currentKey['mode'] ?? 'live');
         $channel = (string) ($payload['channel'] ?? '');
-        if ($channel === '') {
+        if ($mode === 'test') {
+            $channel = 'manual'; // 沙箱：强制人工通道，不产生真实收款
+        } elseif ($channel === '') {
             $enabled = $this->app->channels->enabled();
             $channel = (string) ($enabled[0]['id'] ?? '');
         }
@@ -133,6 +176,7 @@ final class ApiController
                     'referral' => (string) ($payload['referral'] ?? ''),
                     'external_id' => (string) ($payload['external_id'] ?? ''),
                     'tenant' => (string) ($payload['tenant'] ?? ''),
+                    'test' => ($this->currentKey['mode'] ?? 'live') === 'test',
                 ],
             );
         } catch (RuntimeException $e) {

@@ -12,7 +12,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'PayFlow',
-        'version' => '1.0.0',
+        'version' => '1.0.1',
         'env' => 'production',
         'debug' => false,
         // 部署入口：主域名子路径（nownexts.com/payflow）。若改用独立子域，
@@ -135,6 +135,10 @@ return [
     'api' => [
         'enabled' => true,
         'key_prefix' => 'pfk_',
+        'rate_limit' => [
+            'enabled' => true,
+            'per_minute' => 120,   // 每 Key 每分钟请求上限
+        ],
     ],
 
     // AI 提议（自我进化：读审计+指标 → 生成提案，人工批准后才实现）
