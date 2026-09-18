@@ -79,7 +79,7 @@ final class AdminController
             'events' => $this->app->events->recent(15),
             'productCount' => $this->app->products->count(),
             'customerCount' => $this->app->customers->count(),
-            'subscriptions' => array_slice(array_values($this->app->subscriptions->all()), 0, 10),
+            'subscriptions' => $this->app->subscriptions->query([], 10, 0, 'created_at', 'desc'),
         ]));
     }
 
