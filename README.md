@@ -107,5 +107,7 @@ payflow/
 
 ## 文档
 
-- 定位 `docs/POSITIONING.md` · 路线图 `docs/ROADMAP.md` · 通道配置 `docs/PAYMENT-CHANNELS.md`
+- 定位 `docs/POSITIONING.md` · 路线图 `docs/ROADMAP.md` · 施工图 `docs/BACKLOG.md`
+- 矩阵互通 `docs/ECOSYSTEM.md` · 事件目录 `docs/EVENTS.md` · 自我进化 `docs/EVOLUTION.md`
+- 通道配置 `docs/PAYMENT-CHANNELS.md` · API `docs/API.md` · 变更 `CHANGELOG.md`
 - 设计规范 `docs/DESIGN-SYSTEM.md` · 部署 `docs/DEPLOY.md` · Cloudflare `docs/CLOUDFLARE.md`

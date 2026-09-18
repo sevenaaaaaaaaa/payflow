@@ -35,5 +35,8 @@ jobs:
             echo "::error::检测到敏感文件被跟踪"; exit 1
           fi
 
-      - name: Self-test（92+ 项）
+      - name: Self-audit（质量/性能/入口覆盖）
+        run: php payflow/bin/audit.php
+
+      - name: Self-test（100+ 项）
         run: php payflow/tests/run.php

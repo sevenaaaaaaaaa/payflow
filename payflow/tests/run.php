@@ -374,6 +374,10 @@ $ts = (string) time();
 $msg = $ts . "\nGET\n/api/v1/products\n";
 $hmacReq = new \PayFlow\Http\Request('GET', '/api/v1/products', [], [], ['X-PF-Key' => $keyId, 'X-PF-Timestamp' => $ts, 'X-PF-Signature' => hash_hmac('sha256', $msg, $secret)], '');
 check('API HMAC 鉴权通过', isset($opApp->apiAuth->authenticate($hmacReq)['key']));
+$metaReq = new \PayFlow\Http\Request('GET', '/api/v1/meta', [], [], ['Authorization' => 'Bearer ' . $keyId . '.' . $secret], '');
+$metaResp = (new \PayFlow\Http\Controller\ApiController($opApp))->meta($metaReq);
+$metaBody = json_decode($metaResp->body, true);
+check('能力清单 /api/v1/meta 可用', ($metaBody['product'] ?? '') === 'PayFlow' && count($metaBody['events'] ?? []) === 12 && ($metaBody['endpoints'] ?? []) !== []);
 rrmdir($tmpOp);
 
 echo "\n[临时支付链接 · 加密 · 发卡 · 兑换券]\n";

@@ -79,6 +79,7 @@ return static function (Router $router, Application $app): void {
     $router->post('/redeem', fn ($r) => $voucher->redeem($r));
 
     // ── 对外 API v1（API Key 鉴权）──
+    $router->get('/api/v1/meta', fn ($r) => $api->meta($r));
     $router->get('/api/v1/products', fn ($r) => $api->products($r));
     $router->post('/api/v1/checkout', fn ($r) => $api->checkout($r));
     $router->get('/api/v1/orders/{orderNo}', fn ($r) => $api->order($r));

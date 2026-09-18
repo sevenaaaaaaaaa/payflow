@@ -28,6 +28,61 @@ final class ApiController
         return null;
     }
 
+    /**
+     * 能力清单 / 互通发现（其它矩阵产品与集成方读取）。
+     */
+    public function meta(Request $request): Response
+    {
+        if ($denied = $this->authorize($request)) {
+            return $denied;
+        }
+        $base = rtrim($this->app->baseUrl(), '/');
+
+        return Response::json([
+            'ok' => true,
+            'product' => 'PayFlow',
+            'version' => (string) \PayFlow\Support\Arr::get($this->app->config, 'app.version', '1.0.0'),
+            'role' => '收款域（订单事实源 + 现金流中枢）',
+            'base_url' => $base,
+            'api_base' => $base . '/api/v1',
+            'auth' => [
+                'bearer' => 'Authorization: Bearer <key_id>.<secret>',
+                'hmac' => [
+                    'headers' => ['X-PF-Key', 'X-PF-Timestamp', 'X-PF-Signature'],
+                    'message' => "timestamp\nMETHOD\nPATH\nBODY",
+                    'tolerance_seconds' => 300,
+                ],
+            ],
+            'capabilities' => [
+                'checkout', 'subscriptions', 'coupons', 'referrals', 'commissions', 'payouts',
+                'digital_delivery', 'licenses', 'payment_links', 'vouchers', 'invoices',
+                'analytics', 'webhooks', 'crypto_channel',
+            ],
+            'endpoints' => [
+                ['method' => 'GET', 'path' => '/api/v1/meta', 'desc' => '能力清单'],
+                ['method' => 'GET', 'path' => '/api/v1/products', 'desc' => '在售商品'],
+                ['method' => 'POST', 'path' => '/api/v1/checkout', 'desc' => '创建订单并返回支付链接'],
+                ['method' => 'GET', 'path' => '/api/v1/orders/{orderNo}', 'desc' => '查询订单'],
+                ['method' => 'GET|POST', 'path' => '/api/v1/coupons/validate', 'desc' => '优惠券试算'],
+                ['method' => 'GET|POST', 'path' => '/api/v1/licenses/validate', 'desc' => 'License 校验'],
+                ['method' => 'GET', 'path' => '/api/v1/analytics/summary?days=30', 'desc' => '经营汇总'],
+            ],
+            'events' => [
+                'order.paid', 'order.delivered', 'order.refunded',
+                'subscription.renewed', 'subscription.payment_failed', 'subscription.canceled',
+                'commission.pending', 'commission.available', 'commission.reversed',
+                'payout.requested', 'payout.paid', 'referral.click',
+            ],
+            'channels' => array_map(static fn (array $c): string => $c['id'], $this->app->channels->enabled()),
+            'webhook' => [
+                'signature' => 'X-PayFlow-Signature = hex(HMAC_SHA256(secret, body))',
+                'event_header' => 'X-PayFlow-Event',
+                'retry' => 'backoff 30s/1m/2m/4m…，最多 5 次；后台可手动重发',
+            ],
+            'payment_status_flow' => ['created', 'paid', 'delivered', 'refunded'],
+        ]);
+    }
+
     public function products(Request $request): Response
     {
         if ($denied = $this->authorize($request)) {
