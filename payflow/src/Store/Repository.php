@@ -34,6 +34,21 @@ abstract class Repository
     }
 
     /**
+     * @param array<string,string> $filters
+     * @return list<array>
+     */
+    public function query(array $filters = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        return $this->store->query($filters, $limit, $offset, $orderBy, $direction);
+    }
+
+    /** @param array<string,string> $filters */
+    public function countWhere(array $filters = []): int
+    {
+        return $this->store->count($filters);
+    }
+
+    /**
      * @param callable(array):bool $predicate
      * @return list<array>
      */
@@ -71,7 +86,7 @@ abstract class Repository
 
     public function count(): int
     {
-        return count($this->store->all());
+        return $this->store->count();
     }
 
     protected static function idPrefix(): string

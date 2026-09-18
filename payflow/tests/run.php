@@ -127,6 +127,14 @@ $sqlStore->mutate(static function (array $records): array {
 check('SqlStore 事务读改写', $dbFactory->store('demo')->find('s1')['v'] === 42);
 $sqlStore->delete('s2');
 check('SqlStore 删除', !$dbFactory->store('demo')->has('s2'));
+
+$qt = $dbFactory->store('qt');
+$qt->put(['id' => 'q1', 'kind' => 'a', 'created_at' => '2024-01-01T00:00:00+08:00']);
+$qt->put(['id' => 'q2', 'kind' => 'a', 'created_at' => '2024-01-03T00:00:00+08:00']);
+$qt->put(['id' => 'q3', 'kind' => 'b', 'created_at' => '2024-01-02T00:00:00+08:00']);
+check('query 等值过滤+排序', array_map(static fn (array $r): string => $r['id'], $qt->query(['kind' => 'a'], 0, 0, 'created_at', 'desc')) === ['q2', 'q1']);
+check('query 分页 offset/limit', array_map(static fn (array $r): string => $r['id'], $qt->query([], 2, 1, 'created_at', 'asc')) === ['q3', 'q2']);
+check('count 过滤计数', $qt->count(['kind' => 'a']) === 2);
 rrmdir($tmpDb);
 
 echo "\n[订阅续费引擎]\n";

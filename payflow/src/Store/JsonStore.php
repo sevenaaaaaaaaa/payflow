@@ -86,6 +86,48 @@ final class JsonStore implements StoreInterface
         return $out;
     }
 
+    public function query(array $filters = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        $rows = array_values(array_filter($this->all(), static function (array $r) use ($filters): bool {
+            foreach ($filters as $f => $v) {
+                if ((string) ($r[$f] ?? '') !== (string) $v) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+        if ($orderBy !== null) {
+            $dir = strtolower($direction) === 'asc' ? 1 : -1;
+            usort($rows, static fn (array $a, array $b): int => $dir * strcmp((string) ($a[$orderBy] ?? ''), (string) ($b[$orderBy] ?? '')));
+        }
+        $rows = array_slice($rows, $offset, $limit > 0 ? $limit : null);
+
+        return $rows;
+    }
+
+    public function count(array $filters = []): int
+    {
+        if ($filters === []) {
+            return count($this->all());
+        }
+        $n = 0;
+        foreach ($this->all() as $r) {
+            $ok = true;
+            foreach ($filters as $f => $v) {
+                if ((string) ($r[$f] ?? '') !== (string) $v) {
+                    $ok = false;
+                    break;
+                }
+            }
+            if ($ok) {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
     public function put(array $record): array
     {
         $id = (string) ($record['id'] ?? '');

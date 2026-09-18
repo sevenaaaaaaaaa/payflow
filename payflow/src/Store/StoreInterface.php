@@ -27,6 +27,17 @@ interface StoreInterface
      */
     public function where(callable $predicate): array;
 
+    /**
+     * 过滤 + 排序 + 分页查询（等值过滤；MySQL 下推 JSON_EXTRACT，其它实现回退 PHP）。
+     *
+     * @param array<string,string> $filters
+     * @return list<array>
+     */
+    public function query(array $filters = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array;
+
+    /** @param array<string,string> $filters */
+    public function count(array $filters = []): int;
+
     public function put(array $record): array;
 
     public function delete(string $id): void;

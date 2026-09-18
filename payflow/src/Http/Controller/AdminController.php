@@ -551,6 +551,13 @@ final class AdminController
     private function filteredOrders(Request $request, int $perPage = 50, ?int $forcePage = null): array
     {
         $q = strtolower($request->string('q'));
+        if ($q === '') {
+            $total = $this->app->orders->countWhere([]);
+            $page = max(1, $forcePage ?? $request->int('page', 1));
+            $slice = $this->app->orders->query([], $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
+
+            return [$slice, $total, $page, $perPage, ''];
+        }
         $orders = array_values($this->app->orders->all());
         if ($q !== '') {
             $orders = array_filter($orders, static function (array $o) use ($q): bool {
