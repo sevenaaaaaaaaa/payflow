@@ -33,6 +33,7 @@ Authorization: Bearer <key_id>.<secret>
 | GET | `/api/v1/orders/{orderNo}` | 查询订单 |
 | GET/POST | `/api/v1/coupons/validate` | 优惠券试算（product, code, email?） |
 | GET | `/api/v1/analytics/summary?days=30` | 经营汇总（GMV/漏斗/订阅/佣金/渠道） |
+| GET/POST | `/api/v1/licenses/validate` | 校验 License 密钥（body/query: license_key） |
 
 返回统一 JSON：成功 `{"ok":true,...}`，失败 `{"ok":false,"error":"..."}`（HTTP 401/404/422）。
 

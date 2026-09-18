@@ -24,16 +24,6 @@ final class EntitlementRepository extends Repository
         return 'ent_';
     }
 
-    /**
-     * @return list<array>
-     */
-    public function forCustomer(string $customerId): array
-    {
-        return array_values(array_filter(
-            $this->all(),
-            static fn (array $e): bool => ($e['customer_id'] ?? '') === $customerId && ($e['status'] ?? 'active') === 'active',
-        ));
-    }
 
     public function forOrder(string $orderId): ?array
     {
@@ -57,16 +47,6 @@ final class EntitlementRepository extends Repository
         ));
     }
 
-    /**
-     * @return list<array>
-     */
-    public function activeForCustomer(string $customerId): array
-    {
-        return array_values(array_filter(
-            $this->all(),
-            static fn (array $e): bool => ($e['customer_id'] ?? '') === $customerId && ($e['status'] ?? 'active') === 'active',
-        ));
-    }
 
     /**
      * 判断某邮箱是否可访问某内容 URL（白名单 + 前缀匹配）。

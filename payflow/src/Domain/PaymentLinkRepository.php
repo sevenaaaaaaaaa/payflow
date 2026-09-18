@@ -24,13 +24,7 @@ final class PaymentLinkRepository extends Repository
 
     public function findByToken(string $token): ?array
     {
-        foreach ($this->all() as $link) {
-            if (hash_equals((string) ($link['token'] ?? ''), $token)) {
-                return $link;
-            }
-        }
-
-        return null;
+        return $this->firstBy('token', $token);
     }
 
     public function create(array $input): array

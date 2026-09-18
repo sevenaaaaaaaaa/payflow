@@ -14,6 +14,11 @@ interface StoreInterface
 
     public function find(string $id): ?array;
 
+    /**
+     * 按字段精确查找（SQL 实现用 LIKE 预筛 + 精确校验，避免全量加载）。
+     */
+    public function firstBy(string $field, string $value): ?array;
+
     public function has(string $id): bool;
 
     /**

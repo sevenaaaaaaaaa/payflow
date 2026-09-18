@@ -21,36 +21,14 @@ final class OrderRepository extends Repository
 
     public function findByToken(string $token): ?array
     {
-        foreach ($this->all() as $order) {
-            if (hash_equals((string) ($order['token'] ?? ''), $token)) {
-                return $order;
-            }
-        }
-
-        return null;
+        return $this->firstBy('token', $token);
     }
 
     public function findByOrderNo(string $orderNo): ?array
     {
-        foreach ($this->all() as $order) {
-            if (($order['order_no'] ?? '') === $orderNo) {
-                return $order;
-            }
-        }
-
-        return null;
+        return $this->firstBy('order_no', $orderNo);
     }
 
-    public function findByChannelTradeNo(string $channel, string $tradeNo): ?array
-    {
-        foreach ($this->all() as $order) {
-            if (($order['channel'] ?? '') === $channel && ($order['channel_trade_no'] ?? '') === $tradeNo) {
-                return $order;
-            }
-        }
-
-        return null;
-    }
 
     public function create(array $attributes): array
     {

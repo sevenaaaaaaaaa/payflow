@@ -107,11 +107,4 @@ final class CouponService
         $this->coupons->incrementRedeemed((string) $redemption['coupon_id'], -1);
     }
 
-    /**
-     * @return list<array>
-     */
-    public function redemptionsForCoupon(string $couponId): array
-    {
-        return array_values(array_filter($this->redemptions->all(), static fn (array $r): bool => ($r['coupon_id'] ?? '') === $couponId));
-    }
 }

@@ -27,10 +27,6 @@ final class JsonStore implements StoreInterface
         $this->file = rtrim($dataDir, '/') . '/' . $collection . '.json';
     }
 
-    public function file(): string
-    {
-        return $this->file;
-    }
 
     public function driver(): string
     {
@@ -61,6 +57,17 @@ final class JsonStore implements StoreInterface
     public function has(string $id): bool
     {
         return isset($this->all()[$id]);
+    }
+
+    public function firstBy(string $field, string $value): ?array
+    {
+        foreach ($this->all() as $record) {
+            if ((string) ($record[$field] ?? '') === $value) {
+                return $record;
+            }
+        }
+
+        return null;
     }
 
     /**

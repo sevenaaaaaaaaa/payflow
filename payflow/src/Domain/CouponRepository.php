@@ -26,14 +26,7 @@ final class CouponRepository extends Repository
 
     public function findByCode(string $code): ?array
     {
-        $code = strtoupper(trim($code));
-        foreach ($this->all() as $coupon) {
-            if (strtoupper((string) ($coupon['code'] ?? '')) === $code) {
-                return $coupon;
-            }
-        }
-
-        return null;
+        return $this->firstBy('code', strtoupper(trim($code)));
     }
 
     public function create(array $input): array

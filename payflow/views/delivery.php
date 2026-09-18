@@ -64,6 +64,10 @@
   </div>
 <?php endif; ?>
 
+<?php if (!empty($invoice_url)): ?>
+  <p style="margin-top:16px"><a class="pf-btn ghost" href="<?= pf_e((string) $invoice_url) ?>">查看发票 / 收据</a></p>
+<?php endif; ?>
+
 <p class="pf-faint" style="margin-top:20px">此交付链接仅供本人使用，请勿转发。</p>
 
 <?php require __DIR__ . '/partials/foot.php'; ?>

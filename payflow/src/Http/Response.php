@@ -37,13 +37,6 @@ final class Response
         return new self($body, $status, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    public function withHeader(string $name, string $value): self
-    {
-        $headers = $this->headers;
-        $headers[$name] = $value;
-
-        return new self($this->body, $this->status, $headers);
-    }
 
     public function send(): void
     {

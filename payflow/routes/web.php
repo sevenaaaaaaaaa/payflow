@@ -84,6 +84,7 @@ return static function (Router $router, Application $app): void {
     $router->get('/api/v1/orders/{orderNo}', fn ($r) => $api->order($r));
     $router->any('/api/v1/coupons/validate', fn ($r) => $api->couponValidate($r));
     $router->get('/api/v1/analytics/summary', fn ($r) => $api->analytics($r));
+    $router->any('/api/v1/licenses/validate', fn ($r) => $api->licenseValidate($r));
 
     // ── 支付回调 ──
     $router->post('/notify/alipay', fn ($r) => $notify->alipay($r));
@@ -128,6 +129,7 @@ return static function (Router $router, Application $app): void {
     $router->get('/admin/orders', fn ($r) => $admin->orders($r));
     $router->get('/admin/orders/export', fn ($r) => $admin->ordersExport($r));
     $router->post('/admin/orders/{id}/confirm', fn ($r) => $admin->orderConfirm($r));
+    $router->post('/admin/orders/{id}/fail', fn ($r) => $admin->orderFail($r));
     $router->post('/admin/orders/{id}/refund', fn ($r) => $admin->orderRefund($r));
     $router->get('/admin/customers', fn ($r) => $admin->customers($r));
     $router->get('/admin/subscriptions', fn ($r) => $admin->subscriptions($r));

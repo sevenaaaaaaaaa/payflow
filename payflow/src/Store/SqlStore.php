@@ -59,12 +59,57 @@ final class SqlStore implements StoreInterface
 
     public function find(string $id): ?array
     {
-        return $this->all()[$id] ?? null;
+        if (isset($this->cache[$this->collection][$id])) {
+            return $this->cache[$this->collection][$id];
+        }
+        $stmt = $this->pdo->prepare('SELECT data FROM pf_records WHERE collection = :c AND id = :i');
+        $stmt->execute(['c' => $this->collection, 'i' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        $data = json_decode((string) $row['data'], true);
+        if (!is_array($data)) {
+            return null;
+        }
+        $this->cache[$this->collection][$id] = $data;
+
+        return $data;
     }
 
     public function has(string $id): bool
     {
-        return isset($this->all()[$id]);
+        if (isset($this->cache[$this->collection][$id])) {
+            return true;
+        }
+        $stmt = $this->pdo->prepare('SELECT 1 FROM pf_records WHERE collection = :c AND id = :i LIMIT 1');
+        $stmt->execute(['c' => $this->collection, 'i' => $id]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * 按字段精确查找：SQL LIKE 预筛候选 → PHP 精确校验；未命中再全量回退，保证正确性。
+     */
+    public function firstBy(string $field, string $value): ?array
+    {
+        $value = (string) $value;
+        $needle = '%"' . $field . '":"' . addcslashes($value, '%_\\') . '"%';
+        $stmt = $this->pdo->prepare('SELECT id, data FROM pf_records WHERE collection = :c AND data LIKE :n LIMIT 50');
+        $stmt->execute(['c' => $this->collection, 'n' => $needle]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $rec = json_decode((string) $row['data'], true);
+            if (is_array($rec) && (string) ($rec[$field] ?? '') === $value) {
+                return $rec;
+            }
+        }
+        foreach ($this->all() as $rec) {
+            if ((string) ($rec[$field] ?? '') === $value) {
+                return $rec;
+            }
+        }
+
+        return null;
     }
 
     public function where(callable $predicate): array

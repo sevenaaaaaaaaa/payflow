@@ -37,6 +37,9 @@ final class DeliveryController
             'assets' => $this->assetsWithUrls($order),
             'license' => $this->app->deliveryService->licenseForOrder($order),
             'cards' => $this->app->deliveryService->cardsForOrder($order),
+            'invoice_url' => ($inv = $this->app->invoices->forOrder((string) $order['id'])) !== null
+                ? $this->app->invoiceService->urlFor($inv)
+                : null,
         ]));
     }
 

@@ -123,6 +123,29 @@ final class ApiController
         ]);
     }
 
+    public function licenseValidate(Request $request): Response
+    {
+        if ($denied = $this->authorize($request)) {
+            return $denied;
+        }
+        $payload = $request->payload();
+        $key = trim((string) ($payload['license_key'] ?? $request->query['license_key'] ?? ''));
+        if ($key === '') {
+            return Response::json(['ok' => false, 'error' => '缺少 license_key'], 422);
+        }
+        $license = $this->app->licenses->findByKey($key);
+        if ($license === null) {
+            return Response::json(['ok' => true, 'valid' => false]);
+        }
+
+        return Response::json(['ok' => true, 'valid' => ($license['status'] ?? '') === 'active', 'license' => [
+            'status' => $license['status'] ?? null,
+            'product_id' => $license['product_id'] ?? null,
+            'order_no' => $license['order_no'] ?? null,
+            'issued_at' => $license['created_at'] ?? null,
+        ]]);
+    }
+
     public function analytics(Request $request): Response
     {
         if ($denied = $this->authorize($request)) {

@@ -20,14 +20,7 @@ final class CustomerRepository extends Repository
 
     public function findByEmail(string $email): ?array
     {
-        $email = strtolower(trim($email));
-        foreach ($this->all() as $customer) {
-            if (strtolower((string) ($customer['email'] ?? '')) === $email) {
-                return $customer;
-            }
-        }
-
-        return null;
+        return $this->firstBy('email', strtolower(trim($email)));
     }
 
     /**

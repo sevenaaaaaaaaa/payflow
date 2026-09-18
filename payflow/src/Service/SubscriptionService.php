@@ -118,19 +118,6 @@ final class SubscriptionService
         return $report;
     }
 
-    /**
-     * 续费成功后由 OrderService 调用：发续费成功通知 + webhook。
-     */
-    public function onRenewed(array $order, array $subscription): void
-    {
-        $this->notifier->subscriptionRenewed($order, $subscription);
-        $this->webhooks->dispatch('subscription.renewed', [
-            'subscription_id' => $subscription['id'] ?? null,
-            'order_no' => $order['order_no'] ?? null,
-            'current_period_end' => $subscription['current_period_end'] ?? null,
-        ]);
-        $this->events->log('subscription.renewed', ['subscription_id' => $subscription['id'] ?? null, 'order_no' => $order['order_no'] ?? null]);
-    }
 
     public function cancel(string $subscriptionId, string $reason = 'customer'): ?array
     {

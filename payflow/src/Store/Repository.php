@@ -28,6 +28,11 @@ abstract class Repository
         return $this->store->find($id);
     }
 
+    public function firstBy(string $field, string $value): ?array
+    {
+        return $this->store->firstBy($field, $value);
+    }
+
     /**
      * @param callable(array):bool $predicate
      * @return list<array>

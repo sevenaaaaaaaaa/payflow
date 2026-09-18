@@ -27,13 +27,8 @@ final class VoucherRepository extends Repository
         if ($code === '') {
             return null;
         }
-        foreach ($this->all() as $voucher) {
-            if (strtoupper((string) ($voucher['code'] ?? '')) === $code) {
-                return $voucher;
-            }
-        }
 
-        return null;
+        return $this->firstBy('code', $code);
     }
 
     /**

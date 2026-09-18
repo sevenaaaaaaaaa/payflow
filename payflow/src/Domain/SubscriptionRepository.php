@@ -155,18 +155,7 @@ final class SubscriptionRepository extends Repository
         ]);
     }
 
-    public function pause(string $id): ?array
-    {
-        return $this->update($id, ['status' => 'canceled', 'auto_renew' => false, 'canceled_at' => date('c'), 'cancel_reason' => 'paused_by_admin']);
-    }
 
-    /**
-     * @return list<array>
-     */
-    public function forCustomer(string $customerId): array
-    {
-        return array_values(array_filter($this->all(), static fn (array $s): bool => ($s['customer_id'] ?? '') === $customerId));
-    }
 
     public function stats(): array
     {

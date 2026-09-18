@@ -85,12 +85,6 @@ final class AdminAuth
         return true;
     }
 
-    public function user(): string
-    {
-        $this->bootSession();
-
-        return (string) ($_SESSION['pf_admin_user'] ?? '');
-    }
 
     public function logout(): void
     {

@@ -42,13 +42,7 @@ final class ProductRepository extends Repository
 
     public function findBySlug(string $slug): ?array
     {
-        foreach ($this->all() as $product) {
-            if (($product['slug'] ?? '') === $slug) {
-                return $product;
-            }
-        }
-
-        return null;
+        return $this->firstBy('slug', $slug);
     }
 
     public function create(array $input): array

@@ -424,6 +424,42 @@ try {
 }
 rrmdir($tmpX);
 
+echo "\n[工程维护]\n";
+$tmpMt = sys_get_temp_dir() . '/pf-mt-' . bin2hex(random_bytes(4));
+$mtCfg = $cpCfg;
+$mtCfg['data_dir'] = $tmpMt;
+$mtCfg['maintenance'] = ['events_retention_days' => 30, 'events_max_rows' => 3];
+$mtApp = new \PayFlow\Application($mtCfg);
+$mtApp->products->create(['name' => '维护品', 'slug' => 'mt', 'type' => 'one_time', 'amount_cents' => 100, 'entitlement' => ['kind' => 'content', 'items' => []]]);
+$mtpid = (string) $mtApp->products->findBySlug('mt')['id'];
+check('firstBy 按字段命中', $mtApp->products->firstBy('slug', 'mt')['id'] === $mtpid);
+check('firstBy 未命中返回 null', $mtApp->products->firstBy('slug', 'nope') === null);
+
+$o = $mtApp->orderService->startCheckout($mtpid, 'mt@test.com', 'M', 'manual');
+$failedOrder = $mtApp->orderService->fail((string) $o['order']['id'], 'test');
+check('订单可标记失败', ($failedOrder['status'] ?? '') === 'failed');
+
+$lic = null;
+$mtApp->products->create(['name' => '证书品', 'slug' => 'lic', 'type' => 'one_time', 'amount_cents' => 5000, 'license_enabled' => true, 'license_prefix' => 'LV', 'entitlement' => ['kind' => 'content', 'items' => []]]);
+$lid = (string) $mtApp->products->findBySlug('lic')['id'];
+$lo = $mtApp->orderService->startCheckout($lid, 'lic@test.com', 'L', 'manual');
+$lp = $mtApp->orderService->markPaid((string) $lo['order']['id'], 'LV1', 5000, []);
+$lic = $mtApp->deliveryService->licenseForOrder($lp);
+check('License 可按密钥反查', ($mtApp->licenses->findByKey((string) $lic['license_key'])['id'] ?? '') === $lic['id']);
+
+// 事件保留：制造 5 条（2 条旧）
+for ($i = 0; $i < 5; $i++) {
+    $mtApp->events->insert(['type' => 't' . $i, 'payload' => []]);
+}
+foreach ($mtApp->events->all() as $id => $e) {
+    if (str_starts_with((string) $e['type'], 't0') || str_starts_with((string) $e['type'], 't1')) {
+        $mtApp->events->update((string) $id, ['created_at' => date('c', time() - 100 * 86400)]);
+    }
+}
+$pruned = $mtApp->events->prune(30, 3);
+check('事件按天数+行数清理', $pruned >= 2 && count($mtApp->events->all()) <= 3, "pruned={$pruned} left=" . count($mtApp->events->all()));
+rrmdir($tmpMt);
+
 echo "\n" . str_repeat('─', 40) . "\n";
 echo "通过 {$passed} · 失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

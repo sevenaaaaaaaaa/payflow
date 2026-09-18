@@ -589,6 +589,19 @@ final class AdminController
         return Response::redirect(pf_url('/admin/orders'));
     }
 
+    public function orderFail(Request $request): Response
+    {
+        if ($denied = $this->guard($request)) {
+            return $denied;
+        }
+        $order = $this->app->orders->find((string) $request->param('id', ''));
+        if ($order !== null && \PayFlow\Domain\OrderStateMachine::can((string) $order['status'], \PayFlow\Domain\OrderStateMachine::FAILED)) {
+            $this->app->orderService->fail((string) $order['id'], $request->string('reason', 'admin'));
+        }
+
+        return Response::redirect(pf_url('/admin/orders'));
+    }
+
     public function orderRefund(Request $request): Response
     {
         if ($denied = $this->guard($request)) {
@@ -661,6 +674,10 @@ final class AdminController
             'subscription_due' => $this->app->subscriptionService->renewDue(),
             'commissions_matured' => $this->app->commissionService->mature(),
             'webhooks_retried' => $this->app->webhooks->retryDue(),
+            'events_pruned' => $this->app->events->prune(
+                (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_retention_days', 180),
+                (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_max_rows', 50000),
+            ),
         ];
     }
 

@@ -44,6 +44,11 @@ $pages = max(1, (int) ceil($total / max(1, $perPage)));
               <button class="pf-btn sm" type="submit">确认到账</button>
             </form>
           <?php endif; ?>
+          <?php if (OrderStateMachine::can($status, OrderStateMachine::FAILED)): ?>
+            <form method="post" action="<?= pf_url('/admin/orders/' . (string) $order['id'] . '/fail') ?>" style="display:inline" onsubmit="return confirm('标记为支付失败？')">
+              <button class="pf-btn ghost sm" type="submit">标记失败</button>
+            </form>
+          <?php endif; ?>
           <?php if (OrderStateMachine::can($status, OrderStateMachine::REFUNDED)): ?>
             <form method="post" action="<?= pf_url('/admin/orders/' . (string) $order['id'] . '/refund') ?>" style="display:inline" onsubmit="return confirm('确认退款？')">
               <button class="pf-btn ghost sm" type="submit">退款</button>

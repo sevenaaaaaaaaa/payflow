@@ -30,37 +30,15 @@ final class ReferralRepository extends Repository
         if ($code === '') {
             return null;
         }
-        foreach ($this->all() as $referral) {
-            if (strtoupper((string) ($referral['code'] ?? '')) === $code) {
-                return $referral;
-            }
-        }
 
-        return null;
+        return $this->firstBy('code', $code);
     }
 
     public function findByEmail(string $email): ?array
     {
-        $email = strtolower(trim($email));
-        foreach ($this->all() as $referral) {
-            if (strtolower((string) ($referral['email'] ?? '')) === $email) {
-                return $referral;
-            }
-        }
-
-        return null;
+        return $this->firstBy('email', strtolower(trim($email)));
     }
 
-    public function findByCustomer(string $customerId): ?array
-    {
-        foreach ($this->all() as $referral) {
-            if (($referral['customer_id'] ?? '') === $customerId) {
-                return $referral;
-            }
-        }
-
-        return null;
-    }
 
     /**
      * 获取或创建某邮箱的推荐人（结账时自动成为推荐人）。

@@ -152,6 +152,12 @@ return [
         'key_prefix' => 'pfk_',
     ],
 
+    // 维护策略
+    'maintenance' => [
+        'events_retention_days' => 180,   // 事件日志保留天数
+        'events_max_rows' => 50000,       // 事件日志最大行数（超出删最旧）
+    ],
+
     // 发票 / 收据
     'invoice' => [
         'enabled' => true,

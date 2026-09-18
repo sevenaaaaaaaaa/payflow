@@ -34,13 +34,7 @@ final class LicenseRepository extends Repository
 
     public function findByKey(string $key): ?array
     {
-        foreach ($this->all() as $license) {
-            if (hash_equals((string) ($license['license_key'] ?? ''), $key)) {
-                return $license;
-            }
-        }
-
-        return null;
+        return $this->firstBy('license_key', $key);
     }
 
     /**

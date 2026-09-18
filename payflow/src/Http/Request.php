@@ -124,8 +124,4 @@ final class Request
         return $this->rawBody;
     }
 
-    public function clientIp(): string
-    {
-        return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-    }
 }
