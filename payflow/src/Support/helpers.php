@@ -57,6 +57,29 @@ if (!function_exists('pf_url')) {
     }
 }
 
+if (!function_exists('pf_pager')) {
+    /** 统一分页控件（$query 保留筛选参数，page 由本函数接管） */
+    function pf_pager(int $page, int $pages, string $path, array $query = []): string
+    {
+        if ($pages <= 1) {
+            return '';
+        }
+        $link = static function (int $p) use ($path, $query): string {
+            $q = array_merge($query, ['page' => $p]);
+            return pf_url($path . '?' . http_build_query($q));
+        };
+        $html = '<div class="pager"><span class="pf-faint">第 ' . $page . ' / ' . $pages . ' 页</span><div style="display:flex;gap:8px">';
+        if ($page > 1) {
+            $html .= '<a class="pf-btn ghost sm" href="' . pf_e($link($page - 1)) . '">上一页</a>';
+        }
+        if ($page < $pages) {
+            $html .= '<a class="pf-btn ghost sm" href="' . pf_e($link($page + 1)) . '">下一页</a>';
+        }
+
+        return $html . '</div></div>';
+    }
+}
+
 if (!function_exists('pf_asset')) {
     /** 静态资产 URL：pf_asset('tokens.css') → /payflow/assets/tokens.css */
     function pf_asset(string $file): string

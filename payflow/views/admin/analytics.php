@@ -7,7 +7,7 @@ $max = 1;
 foreach ($series as $row) { $max = max($max, (int) $row['gmv_cents']); }
 ?>
 
-<section style="padding:28px 0 16px" class="pf-row-between">
+<section class="page-head">
   <div>
     <h1 style="font-size:24px;font-weight:700">数据看板</h1>
     <p class="pf-muted" style="margin-top:6px">近 <?= (int) $days ?> 天。</p>
@@ -61,7 +61,7 @@ foreach ($series as $row) { $max = max($max, (int) $row['gmv_cents']); }
 
 <div class="pf-card">
   <h3 style="margin-bottom:14px">渠道分布</h3>
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>通道</th><th>支付单数</th><th>GMV</th></tr></thead>
     <tbody>
     <?php foreach ($summary['channels'] as $channel => $row): ?>
@@ -69,7 +69,7 @@ foreach ($series as $row) { $max = max($max, (int) $row['gmv_cents']); }
     <?php endforeach; ?>
     <?php if ($summary['channels'] === []): ?><tr><td colspan="3" class="pf-faint">区间内暂无支付</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

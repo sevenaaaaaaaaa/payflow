@@ -3,7 +3,7 @@ $active = 'products';
 require __DIR__ . '/../partials/admin-head.php';
 ?>
 
-<section style="padding:28px 0 16px">
+<section class="page-head">
   <h1 style="font-size:24px;font-weight:700">发卡库存 · <?= pf_e((string) $product['name']) ?></h1>
   <p class="pf-muted" style="margin-top:6px">每笔支付自动发一张可用卡密。需在商品编辑页勾选「发卡交付」。</p>
 </section>
@@ -30,7 +30,7 @@ require __DIR__ . '/../partials/admin-head.php';
 
   <div class="pf-card">
     <h3 style="margin-bottom:12px">卡密列表</h3>
-    <table class="pf-table">
+    <div class="table-wrap"><table class="pf-table">
       <thead><tr><th>卡密</th><th>状态</th><th>订单</th><th></th></tr></thead>
       <tbody>
       <?php foreach ($cards as $card): ?>
@@ -47,7 +47,7 @@ require __DIR__ . '/../partials/admin-head.php';
       <?php endforeach; ?>
       <?php if ($cards === []): ?><tr><td colspan="4" class="pf-faint">还没有卡密</td></tr><?php endif; ?>
       </tbody>
-    </table>
+    </table></div>
   </div>
 </div>
 

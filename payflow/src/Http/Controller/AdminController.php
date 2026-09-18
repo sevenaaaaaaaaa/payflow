@@ -89,6 +89,19 @@ final class AdminController
     /**
      * 子页（商品/订单/客户）未登录 → 回入口（入口会就地显示登录表单）。
      */
+    /**
+     * @return array{0:list<array>,1:int,2:int,3:int}
+     */
+    private function paginate(\PayFlow\Store\Repository $repo, Request $request, int $perPage = 50): array
+    {
+        $total = $repo->countWhere([]);
+        $page = max(1, $request->int('page', 1));
+        $perPage = max(1, $perPage);
+        $rows = $repo->query([], $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
+
+        return [$rows, $total, $page, $perPage];
+    }
+
     private function guard(Request $request): ?Response
     {
         if (!$this->auth->attempt($request)) {
@@ -219,8 +232,10 @@ final class AdminController
             return $denied;
         }
 
+        [$licenses, $total, $page, $perPage] = $this->paginate($this->app->licenses, $request);
+
         return Response::html(View::render('admin/licenses', [
-            'licenses' => $this->app->licenses->recent(),
+            'licenses' => $licenses, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
         ]));
     }
 
@@ -282,12 +297,15 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
+        [$invoices, $total, $page, $perPage] = $this->paginate($this->app->invoices, $request);
         $rows = [];
-        foreach ($this->app->invoices->recent() as $invoice) {
+        foreach ($invoices as $invoice) {
             $rows[] = ['invoice' => $invoice, 'url' => $this->app->invoiceService->urlFor($invoice)];
         }
 
-        return Response::html(View::render('admin/invoices', ['rows' => $rows]));
+        return Response::html(View::render('admin/invoices', [
+            'rows' => $rows, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
+        ]));
     }
 
     // ── 看板 ──
@@ -314,8 +332,10 @@ final class AdminController
             return $denied;
         }
 
+        [$deliveries, $total, $page, $perPage] = $this->paginate($this->app->webhookDeliveries, $request);
+
         return Response::html(View::render('admin/webhooks', [
-            'deliveries' => $this->app->webhookDeliveries->recent(100),
+            'deliveries' => $deliveries, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
             'targets' => $this->app->webhooks->targets(),
         ]));
     }
@@ -365,13 +385,15 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
+        [$links, $total, $page, $perPage] = $this->paginate($this->app->paymentLinks, $request);
         $rows = [];
-        foreach ($this->app->paymentLinks->recent() as $link) {
+        foreach ($links as $link) {
             $rows[] = ['link' => $link, 'url' => $this->app->paymentLinkService->urlFor($link)];
         }
 
         return Response::html(View::render('admin/payment-links', [
             'rows' => $rows,
+            'total' => $total, 'page' => $page, 'perPage' => $perPage,
             'products' => $this->app->products->active(),
         ]));
     }
@@ -476,8 +498,11 @@ final class AdminController
             return $denied;
         }
 
+        [$vouchers, $total, $page, $perPage] = $this->paginate($this->app->vouchers, $request);
+
         return Response::html(View::render('admin/vouchers', [
-            'vouchers' => $this->app->vouchers->recent(),
+            'vouchers' => $vouchers,
+            'total' => $total, 'page' => $page, 'perPage' => $perPage,
             'products' => $this->app->products->active(),
             'flash' => (string) ($request->query['ok'] ?? ''),
         ]));
@@ -643,9 +668,11 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
-        $customers = $this->app->customers->query([], 0, 0, 'created_at', 'desc');
+        [$customers, $total, $page, $perPage] = $this->paginate($this->app->customers, $request);
 
-        return Response::html(View::render('admin/customers', ['customers' => $customers]));
+        return Response::html(View::render('admin/customers', [
+            'customers' => $customers, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
+        ]));
     }
 
     public function subscriptions(Request $request): Response
@@ -707,8 +734,10 @@ final class AdminController
             return $denied;
         }
 
+        [$coupons, $total, $page, $perPage] = $this->paginate($this->app->coupons, $request);
+
         return Response::html(View::render('admin/coupons', [
-            'coupons' => $this->app->coupons->recent(),
+            'coupons' => $coupons, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
         ]));
     }
 
@@ -776,8 +805,9 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
+        [$referrals, $total, $page, $perPage] = $this->paginate($this->app->referrals, $request);
         $rows = [];
-        foreach ($this->app->referrals->recent() as $referral) {
+        foreach ($referrals as $referral) {
             $summary = $this->app->commissionService->summary((string) $referral['id']);
             $rows[] = [
                 'referral' => $referral,
@@ -788,7 +818,9 @@ final class AdminController
             ];
         }
 
-        return Response::html(View::render('admin/referrals', ['rows' => $rows]));
+        return Response::html(View::render('admin/referrals', [
+            'rows' => $rows, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
+        ]));
     }
 
     public function referralCreate(Request $request): Response
@@ -885,9 +917,11 @@ final class AdminController
             return $denied;
         }
 
+        [$payouts, $total, $page, $perPage] = $this->paginate($this->app->payouts, $request);
+
         return Response::html(View::render('admin/payouts', [
-            'commissions' => $this->app->commissions->recent(),
-            'payouts' => $this->app->payouts->recent(),
+            'commissions' => $this->app->commissions->recent(100),
+            'payouts' => $payouts, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
         ]));
     }
 

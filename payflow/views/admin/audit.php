@@ -4,7 +4,7 @@ require __DIR__ . '/../partials/admin-head.php';
 $pages = max(1, (int) ceil(($total ?? count($events)) / max(1, $perPage ?? 50)));
 ?>
 
-<section style="padding:28px 0 16px" class="pf-row-between">
+<section class="page-head">
   <div>
     <h1 style="font-size:24px;font-weight:700">操作审计</h1>
     <p class="pf-muted" style="margin-top:6px">共 <?= (int) ($total ?? count($events)) ?> 条 · 订单 / 订阅 / 佣金 / 提现 / 资产等全部事件。</p>
@@ -16,7 +16,7 @@ $pages = max(1, (int) ceil(($total ?? count($events)) / max(1, $perPage ?? 50)))
 </section>
 
 <div class="pf-card">
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>时间</th><th>类型</th><th>详情</th></tr></thead>
     <tbody>
     <?php foreach ($events as $event): ?>
@@ -28,18 +28,9 @@ $pages = max(1, (int) ceil(($total ?? count($events)) / max(1, $perPage ?? 50)))
     <?php endforeach; ?>
     <?php if ($events === []): ?><tr><td colspan="3" class="pf-faint">无匹配事件</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
-<?php if ($pages > 1): ?>
-  <div class="pf-row-between" style="margin-top:16px">
-    <span class="pf-faint">第 <?= (int) $page ?> / <?= (int) $pages ?> 页</span>
-    <div style="display:flex;gap:8px">
-      <?php $qs = $q !== '' ? '&q=' . rawurlencode($q) : ''; ?>
-      <?php if ($page > 1): ?><a class="pf-btn ghost sm" href="<?= pf_url('/admin/audit?page=' . ($page - 1) . $qs) ?>">上一页</a><?php endif; ?>
-      <?php if ($page < $pages): ?><a class="pf-btn ghost sm" href="<?= pf_url('/admin/audit?page=' . ($page + 1) . $qs) ?>">下一页</a><?php endif; ?>
-    </div>
-  </div>
-<?php endif; ?>
+<?= pf_pager($page, $pages, '/admin/audit', $q !== '' ? ['q' => $q] : []) ?>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

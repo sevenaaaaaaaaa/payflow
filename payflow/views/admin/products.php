@@ -1,6 +1,6 @@
 <?php $active = 'products'; require __DIR__ . '/../partials/admin-head.php'; ?>
 
-<section style="padding:28px 0 16px" class="pf-row-between">
+<section class="page-head">
   <div>
     <h1 style="font-size:24px;font-weight:700">商品与价格</h1>
     <p class="pf-muted" style="margin-top:6px">一次性买断 + 定期订阅两种定价。</p>
@@ -9,7 +9,7 @@
 </section>
 
 <div class="pf-card">
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>名称</th><th>slug</th><th>类型</th><th>价格</th><th>权益</th><th>状态</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($products as $product): ?>
@@ -31,7 +31,7 @@
     <?php endforeach; ?>
     <?php if ($products === []): ?><tr><td colspan="7" class="pf-faint">还没有商品，点右上角新建。</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

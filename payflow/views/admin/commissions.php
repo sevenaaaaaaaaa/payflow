@@ -4,7 +4,7 @@ require __DIR__ . '/../partials/admin-head.php';
 use PayFlow\Support\Money;
 ?>
 
-<section style="padding:28px 0 16px" class="pf-row-between">
+<section class="page-head">
   <div>
     <h1 style="font-size:24px;font-weight:700">佣金结算报表</h1>
     <p class="pf-muted" style="margin-top:6px">按时间范围汇总，可导出对账单 CSV。</p>
@@ -29,7 +29,7 @@ use PayFlow\Support\Money;
 
 <div class="pf-card" style="margin-bottom:20px">
   <h3 style="margin-bottom:12px">按推荐人汇总</h3>
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>推荐人</th><th>订单数</th><th>佣金合计</th></tr></thead>
     <tbody>
     <?php foreach ($byReferrer as $row): ?>
@@ -37,12 +37,12 @@ use PayFlow\Support\Money;
     <?php endforeach; ?>
     <?php if ($byReferrer === []): ?><tr><td colspan="3" class="pf-faint">区间内无佣金</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <div class="pf-card">
   <h3 style="margin-bottom:12px">明细</h3>
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>时间</th><th>订单</th><th>推荐人</th><th>订单金额</th><th>比例</th><th>佣金</th><th>状态</th></tr></thead>
     <tbody>
     <?php foreach ($detail as $c): ?>
@@ -58,7 +58,7 @@ use PayFlow\Support\Money;
     <?php endforeach; ?>
     <?php if ($detail === []): ?><tr><td colspan="7" class="pf-faint">区间内无明细</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

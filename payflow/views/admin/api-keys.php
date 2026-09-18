@@ -3,7 +3,7 @@ $active = 'api-keys';
 require __DIR__ . '/../partials/admin-head.php';
 ?>
 
-<section style="padding:28px 0 16px" class="pf-row-between">
+<section class="page-head">
   <div>
     <h1 style="font-size:24px;font-weight:700">API 密钥</h1>
     <p class="pf-muted" style="margin-top:6px">用于对外 API 与矩阵产品互通（HMAC 或 Bearer，见 <span class="pf-mono">docs/API.md</span>）。</p>
@@ -27,7 +27,7 @@ secret: <?= pf_e((string) $newKey['secret']) ?></div>
 <?php endif; ?>
 
 <div class="pf-card">
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>名称</th><th>模式</th><th>Key ID</th><th>请求数</th><th>最近使用</th><th>状态</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($keys as $key): ?>
@@ -49,7 +49,7 @@ secret: <?= pf_e((string) $newKey['secret']) ?></div>
     <?php endforeach; ?>
     <?php if ($keys === []): ?><tr><td colspan="7" class="pf-faint">还没有密钥</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

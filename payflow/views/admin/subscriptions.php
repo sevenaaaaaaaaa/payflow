@@ -4,7 +4,7 @@ require __DIR__ . '/../partials/admin-head.php';
 use PayFlow\Support\Money;
 ?>
 
-<section style="padding:28px 0 16px" class="pf-row-between">
+<section class="page-head">
   <div>
     <h1 style="font-size:24px;font-weight:700">订阅</h1>
     <p class="pf-muted" style="margin-top:6px">自动续费 · 失败重试（1/3/5 天）· 宽限期后降级。</p>
@@ -21,7 +21,7 @@ use PayFlow\Support\Money;
 </section>
 
 <div class="pf-card">
-  <table class="pf-table">
+  <div class="table-wrap"><table class="pf-table">
     <thead><tr><th>客户</th><th>商品</th><th>金额</th><th>状态</th><th>当前周期至</th><th>失败</th><th>下次重试</th><th>操作</th></tr></thead>
     <tbody>
     <?php foreach ($subscriptions as $sub): ?>
@@ -47,7 +47,7 @@ use PayFlow\Support\Money;
     <?php endforeach; ?>
     <?php if ($subscriptions === []): ?><tr><td colspan="8" class="pf-faint">暂无订阅</td></tr><?php endif; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

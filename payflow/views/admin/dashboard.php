@@ -1,6 +1,6 @@
 <?php $active = 'dashboard'; require __DIR__ . '/../partials/admin-head.php'; ?>
 
-<section style="padding:28px 0 16px">
+<section class="page-head">
   <h1 style="font-size:24px;font-weight:700">概览</h1>
   <p class="pf-muted" style="margin-top:6px">收款、订阅、客户的实时状态。</p>
 </section>
@@ -19,7 +19,7 @@
     <div class="pf-row-between" style="margin-bottom:12px">
       <h3>最近订单</h3><a class="pf-btn ghost sm" href="<?= pf_url('/admin/orders') ?>">全部</a>
     </div>
-    <table class="pf-table">
+    <div class="table-wrap"><table class="pf-table">
       <thead><tr><th>订单号</th><th>商品</th><th>金额</th><th>状态</th></tr></thead>
       <tbody>
       <?php foreach ($orders as $order): ?>
@@ -32,7 +32,7 @@
       <?php endforeach; ?>
       <?php if ($orders === []): ?><tr><td colspan="4" class="pf-faint">暂无订单</td></tr><?php endif; ?>
       </tbody>
-    </table>
+    </table></div>
   </div>
 
   <div class="pf-card">
@@ -52,7 +52,7 @@
 <section style="margin-top:22px">
   <div class="pf-row-between" style="margin-bottom:12px"><h3>订阅</h3></div>
   <div class="pf-card">
-    <table class="pf-table">
+    <div class="table-wrap"><table class="pf-table">
       <thead><tr><th>客户</th><th>状态</th><th>周期</th><th>下次续费</th><th>失败次数</th></tr></thead>
       <tbody>
       <?php foreach ($subscriptions as $sub): ?>
@@ -66,7 +66,7 @@
       <?php endforeach; ?>
       <?php if ($subscriptions === []): ?><tr><td colspan="5" class="pf-faint">暂无订阅</td></tr><?php endif; ?>
       </tbody>
-    </table>
+    </table></div>
   </div>
 </section>
 

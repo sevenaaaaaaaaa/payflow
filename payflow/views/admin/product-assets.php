@@ -3,7 +3,7 @@ $active = 'products';
 require __DIR__ . '/../partials/admin-head.php';
 ?>
 
-<section style="padding:28px 0 16px">
+<section class="page-head">
   <h1 style="font-size:24px;font-weight:700">文件资产 · <?= pf_e((string) $product['name']) ?></h1>
   <p class="pf-muted" style="margin-top:6px">上传的文件仅在客户支付后通过签名链接下载，不可直连。</p>
 </section>
@@ -32,7 +32,7 @@ require __DIR__ . '/../partials/admin-head.php';
 
   <div class="pf-card">
     <h3 style="margin-bottom:12px">已上传（<?= count($assets) ?>）</h3>
-    <table class="pf-table">
+    <div class="table-wrap"><table class="pf-table">
       <thead><tr><th>名称</th><th>大小</th><th>限次</th><th></th></tr></thead>
       <tbody>
       <?php foreach ($assets as $asset): ?>
@@ -49,7 +49,7 @@ require __DIR__ . '/../partials/admin-head.php';
       <?php endforeach; ?>
       <?php if ($assets === []): ?><tr><td colspan="4" class="pf-faint">还没有文件</td></tr><?php endif; ?>
       </tbody>
-    </table>
+    </table></div>
   </div>
 </div>
 

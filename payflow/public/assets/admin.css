@@ -1,0 +1,53 @@
+/* PayFlow · 后台专用布局与表格一致化（走设计令牌，支持暗色） */
+
+/* 页头 */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 28px 0 16px; }
+.page-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
+.page-head .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.page-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* 分组导航 */
+.admin-nav { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.admin-navgroup { display: flex; align-items: center; gap: 4px; padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--border-soft); }
+.admin-navgroup:last-child { border-right: 0; }
+.admin-navlabel { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); padding: 0 4px; user-select: none; }
+@media (max-width: 960px) {
+  .admin-nav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
+  .admin-nav::-webkit-scrollbar { height: 6px; }
+  .admin-nav::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+  .admin-navlabel { display: none; }
+}
+
+/* 表格 */
+.table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--r-sm); }
+.table-wrap .pf-table { min-width: 680px; }
+.pf-table th { position: sticky; top: 0; z-index: 1; background: var(--surface-strong); backdrop-filter: blur(10px) saturate(160%); }
+.pf-table tbody tr:last-child td { border-bottom: 0; }
+.pf-table td.num, .pf-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pf-table td.nowrap { white-space: nowrap; }
+.pf-table td.mono, .pf-table .mono { font-family: var(--font-mono); font-size: 12.5px; }
+
+/* 空状态 */
+.empty { padding: 30px 16px; text-align: center; color: var(--faint); font-size: 14px; }
+
+/* 分页 */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.pager .pf-faint { font-size: 13px; }
+
+/* 过滤条 */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filters .pf-input, .filters .pf-select, .filters .pf-btn { height: 38px; }
+
+/* 卡片标题与统计网格 */
+.card-title { font-size: 16px; font-weight: 650; margin-bottom: 12px; }
+.stat-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+/* 小屏：表单两列折叠 */
+@media (max-width: 720px) {
+  .pf-grid.cols-2, .pf-grid.cols-3 { grid-template-columns: 1fr; }
+  .page-head { padding-top: 20px; }
+  .page-head h1 { font-size: 21px; }
+}
+
+/* 徽标数值对齐 */
+.pf-pill.tabular { font-variant-numeric: tabular-nums; }
