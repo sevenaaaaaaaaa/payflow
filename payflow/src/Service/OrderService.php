@@ -71,7 +71,12 @@ final class OrderService
             $discount = (int) $result['discount_cents'];
         }
 
-        $customer = $this->customers->findOrCreate($email, $name);
+        $customer = $this->customers->findOrCreate(
+            $email,
+            $name,
+            (string) ($options['external_id'] ?? ''),
+            (string) ($options['tenant'] ?? ''),
+        );
 
         $referralAttr = ['referral_code' => null, 'referral_id' => null];
         $referralCode = trim((string) ($options['referral'] ?? ''));
@@ -99,6 +104,8 @@ final class OrderService
             'channel' => $channelId,
             'referral_code' => $referralAttr['referral_code'],
             'referral_id' => $referralAttr['referral_id'],
+            'external_id' => $options['external_id'] ?? null,
+            'tenant' => $options['tenant'] ?? null,
         ]);
 
         if ($coupon !== null) {
@@ -420,6 +427,8 @@ final class OrderService
             'paid_at' => $order['paid_at'] ?? null,
             'delivered_at' => $order['delivered_at'] ?? null,
             'email' => $order['email'] ?? '',
+            'external_id' => $order['external_id'] ?? null,
+            'tenant' => $order['tenant'] ?? null,
         ];
     }
 }

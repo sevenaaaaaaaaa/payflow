@@ -45,11 +45,12 @@
 
 - [x] 能力清单 `GET /api/v1/meta` + 事件目录 `docs/EVENTS.md`
 - [x] 自审计工具 `bin/audit.php`（质量/性能/入口覆盖，CI 可调用）
-- [ ] 统一事件信封（id/version/subject/idempotency_key）
-- [ ] 入站事件 `POST /api/v1/events` + 增量拉取 `GET /api/v1/events?since=`
-- [ ] 统一主体 subject{email,external_id,tenant}
+- [x] 统一事件信封（id/version/subject/idempotency_key）
+- [x] 入站事件 `POST /api/v1/events` + 增量拉取 `GET /api/v1/events?since=`
+- [x] 统一主体 subject{email,external_id,tenant}（结账可带，客户/订单落库）
 - [ ] 限流配额 / 沙箱 / 弃用策略
-- [ ] `bin/propose.php`（AI 提议，人工批准）→ L2 受控自动执行
+- [x] `bin/propose.php`（AI 提议，人工批准）
+- [ ] L2 受控自动执行
 
 ## 技术约束（与 OpenFlow 一致）
 

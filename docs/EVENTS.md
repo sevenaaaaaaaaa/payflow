@@ -9,7 +9,14 @@
 { "event": "order.paid", "data": { ... }, "sent_at": "2026-09-18T12:00:00+08:00" }
 ```
 
-## 目标信封（H3.1，向后兼容补字段）
+## 已实现（H3.1/H3.2）
+
+- 出站事件已按下方**统一信封**发送（同时保留 `event`/`sent_at` 兼容旧消费方）
+- 所有出站事件写入 **Outbox**，可 `GET /api/v1/events?since=&limit=` 增量拉取
+- 入站 `POST /api/v1/events` 已可用：`entitlement.revoke`（按 `order_no` 或 `email` 撤销权益）、
+  `customer.update`（tags/external_id/tenant）；未知类型安全留存（noop）
+
+## 统一信封
 
 ```json
 {
@@ -61,7 +68,7 @@
 - **OpenFlow Sales**：`order.paid` → 线索转成交。
 - **任意 MA**：以 `idempotency_key` 去重，失败可回读 `GET /api/v1/orders/{orderNo}` 对账。
 
-## 入站事件（H3.2，规划）
+## 入站事件（已实现）
 
 其它产品可推事件给 PayFlow（HMAC + 幂等键）：
 `POST /api/v1/events`

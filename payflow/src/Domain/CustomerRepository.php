@@ -26,21 +26,30 @@ final class CustomerRepository extends Repository
     /**
      * 幂等 upsert：同邮箱复用客户档案。
      */
-    public function findOrCreate(string $email, string $name = ''): array
+    public function findOrCreate(string $email, string $name = '', string $externalId = '', string $tenant = ''): array
     {
         $email = strtolower(trim($email));
         $existing = $this->findByEmail($email);
         if ($existing !== null) {
-            if ($name !== '' && $existing['name'] !== $name) {
-                return $this->update((string) $existing['id'], ['name' => $name]) ?? $existing;
+            $patch = [];
+            if ($name !== '' && ($existing['name'] ?? '') !== $name) {
+                $patch['name'] = $name;
+            }
+            if ($externalId !== '' && ($existing['external_id'] ?? '') !== $externalId) {
+                $patch['external_id'] = $externalId;
+            }
+            if ($tenant !== '' && ($existing['tenant'] ?? '') !== $tenant) {
+                $patch['tenant'] = $tenant;
             }
 
-            return $existing;
+            return $patch === [] ? $existing : ($this->update((string) $existing['id'], $patch) ?? $existing);
         }
 
         return $this->insert([
             'email' => $email,
             'name' => trim($name),
+            'external_id' => $externalId !== '' ? $externalId : null,
+            'tenant' => $tenant !== '' ? $tenant : null,
             'membership_level' => null,
             'membership_expires_at' => null,
         ]);

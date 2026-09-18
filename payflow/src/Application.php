@@ -13,9 +13,11 @@ use PayFlow\Domain\CouponRepository;
 use PayFlow\Domain\DownloadRepository;
 use PayFlow\Domain\EntitlementRepository;
 use PayFlow\Domain\EventRepository;
+use PayFlow\Domain\InboundEventRepository;
 use PayFlow\Domain\InvoiceRepository;
 use PayFlow\Domain\LicenseRepository;
 use PayFlow\Domain\OrderRepository;
+use PayFlow\Domain\OutboxRepository;
 use PayFlow\Domain\PaymentLinkRepository;
 use PayFlow\Domain\PayoutRepository;
 use PayFlow\Domain\ProductRepository;
@@ -32,6 +34,7 @@ use PayFlow\Service\CommissionService;
 use PayFlow\Service\CouponService;
 use PayFlow\Service\DeliveryService;
 use PayFlow\Service\EntitlementService;
+use PayFlow\Service\InboundEventService;
 use PayFlow\Service\InvoiceService;
 use PayFlow\Service\Mailer;
 use PayFlow\Service\Notifier;
@@ -65,6 +68,8 @@ final class Application
     public readonly ApiKeyRepository $apiKeys;
     public readonly WebhookDeliveryRepository $webhookDeliveries;
     public readonly InvoiceRepository $invoices;
+    public readonly OutboxRepository $outbox;
+    public readonly InboundEventRepository $inboundEvents;
     public readonly PaymentLinkRepository $paymentLinks;
     public readonly CardRepository $cards;
     public readonly VoucherRepository $vouchers;
@@ -76,6 +81,7 @@ final class Application
     public readonly DeliveryService $deliveryService;
     public readonly ApiAuth $apiAuth;
     public readonly InvoiceService $invoiceService;
+    public readonly InboundEventService $inboundEventService;
     public readonly AnalyticsService $analyticsService;
     public readonly PaymentLinkService $paymentLinkService;
     public readonly VoucherService $voucherService;
@@ -109,6 +115,8 @@ final class Application
         $this->apiKeys = new ApiKeyRepository($stores);
         $this->webhookDeliveries = new WebhookDeliveryRepository($stores);
         $this->invoices = new InvoiceRepository($stores);
+        $this->outbox = new OutboxRepository($stores);
+        $this->inboundEvents = new InboundEventRepository($stores);
         $this->paymentLinks = new PaymentLinkRepository($stores);
         $this->cards = new CardRepository($stores);
         $this->vouchers = new VoucherRepository($stores);
@@ -118,13 +126,14 @@ final class Application
         $this->couponService = new CouponService($this->coupons, $this->redemptions);
         $this->mailer = new Mailer($config['mail'] ?? []);
         $this->notifier = new Notifier($this->mailer, $config['mail'] ?? []);
-        $this->webhooks = new WebhookDispatcher($config['webhooks'] ?? [], $this->webhookDeliveries);
+        $this->webhooks = new WebhookDispatcher($config['webhooks'] ?? [], $this->webhookDeliveries, $this->outbox);
         $this->commissionService = new CommissionService($config, $this->commissions, $this->referrals, $this->notifier, $this->webhooks, $this->events);
         $this->referralService = new ReferralService($config, $this->referrals, $this->commissions, $this->payouts, $this->commissionService, $this->notifier, $this->events, $this->webhooks);
         $this->deliveryService = new DeliveryService($config, $this->assets, $this->licenses, $this->downloads, $this->products, $this->events, $baseUrl, $this->cards);
         $this->apiAuth = new ApiAuth($this->apiKeys, $config);
         $this->invoiceService = new InvoiceService($config, $this->invoices, $this->events, $baseUrl);
         $this->analyticsService = new AnalyticsService($this->orders, $this->subscriptions, $this->commissions, $this->customers);
+        $this->inboundEventService = new InboundEventService($this->inboundEvents, $this->orders, $this->customers, $this->entitlements, $this->events);
         $this->paymentLinkService = new PaymentLinkService($this->paymentLinks, $this->products, $this->events, $baseUrl);
 
         $this->orderService = new OrderService(

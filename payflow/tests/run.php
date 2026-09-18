@@ -380,6 +380,34 @@ $metaBody = json_decode($metaResp->body, true);
 check('能力清单 /api/v1/meta 可用', ($metaBody['product'] ?? '') === 'PayFlow' && count($metaBody['events'] ?? []) === 12 && ($metaBody['endpoints'] ?? []) !== []);
 rrmdir($tmpOp);
 
+echo "\n[互通 · 事件信封 / Outbox / 入站幂等]\n";
+$tmpI = sys_get_temp_dir() . '/pf-ie-' . bin2hex(random_bytes(4));
+$iCfg = $cpCfg;
+$iCfg['data_dir'] = $tmpI;
+$iApp = new \PayFlow\Application($iCfg);
+$iApp->products->create(['name' => '互通品', 'slug' => 'ie', 'type' => 'one_time', 'amount_cents' => 1000, 'entitlement' => ['kind' => 'content', 'items' => []]]);
+$iid = (string) $iApp->products->findBySlug('ie')['id'];
+$io = $iApp->orderService->startCheckout($iid, 'io@test.com', 'IO', 'manual', ['external_id' => 'ext-1', 'tenant' => 't1']);
+check('订单记录 external_id/tenant', ($io['order']['external_id'] ?? '') === 'ext-1' && ($io['order']['tenant'] ?? '') === 't1');
+$iop = $iApp->orderService->markPaid((string) $io['order']['id'], 'IO1', 1000, []);
+$outbox = $iApp->outbox->since('', 50);
+$hasEnvelope = false;
+foreach ($outbox as $e) {
+    if (!empty($e['idempotency_key']) && !empty($e['subject']) && ($e['type'] ?? '') !== '') {
+        $hasEnvelope = true;
+        break;
+    }
+}
+check('Outbox 记录统一信封', $hasEnvelope && count($outbox) >= 1);
+check('增量拉取可用', $iApp->outbox->since('', 1) !== []);
+$rev = $iApp->inboundEventService->handle(['type' => 'entitlement.revoke', 'source' => 'learnflow', 'data' => ['order_no' => $iop['order_no']], 'idempotency_key' => 'k-1']);
+check('入站事件撤销权益', ($rev['applied'] ?? '') === 'revoked');
+$rev2 = $iApp->inboundEventService->handle(['type' => 'entitlement.revoke', 'data' => ['order_no' => $iop['order_no']], 'idempotency_key' => 'k-1']);
+check('入站事件幂等去重', ($rev2['duplicate'] ?? false) === true);
+$cust = $iApp->customers->findByEmail('io@test.com');
+check('客户 external_id 落库', ($cust['external_id'] ?? '') === 'ext-1');
+rrmdir($tmpI);
+
 echo "\n[临时支付链接 · 加密 · 发卡 · 兑换券]\n";
 $tmpX = sys_get_temp_dir() . '/pf-x-' . bin2hex(random_bytes(4));
 $xCfg = $cpCfg;

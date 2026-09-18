@@ -66,6 +66,8 @@ final class ApiController
                 ['method' => 'GET|POST', 'path' => '/api/v1/coupons/validate', 'desc' => '优惠券试算'],
                 ['method' => 'GET|POST', 'path' => '/api/v1/licenses/validate', 'desc' => 'License 校验'],
                 ['method' => 'GET', 'path' => '/api/v1/analytics/summary?days=30', 'desc' => '经营汇总'],
+                ['method' => 'GET', 'path' => '/api/v1/events?since=&limit=', 'desc' => '增量拉取出站事件'],
+                ['method' => 'POST', 'path' => '/api/v1/events', 'desc' => '入站事件（幂等）'],
             ],
             'events' => [
                 'order.paid', 'order.delivered', 'order.refunded',
@@ -126,7 +128,12 @@ final class ApiController
                 (string) ($payload['email'] ?? ''),
                 (string) ($payload['name'] ?? ''),
                 $channel,
-                ['coupon' => (string) ($payload['coupon'] ?? ''), 'referral' => (string) ($payload['referral'] ?? '')],
+                [
+                    'coupon' => (string) ($payload['coupon'] ?? ''),
+                    'referral' => (string) ($payload['referral'] ?? ''),
+                    'external_id' => (string) ($payload['external_id'] ?? ''),
+                    'tenant' => (string) ($payload['tenant'] ?? ''),
+                ],
             );
         } catch (RuntimeException $e) {
             return Response::json(['ok' => false, 'error' => $e->getMessage()], 422);
@@ -199,6 +206,54 @@ final class ApiController
             'order_no' => $license['order_no'] ?? null,
             'issued_at' => $license['created_at'] ?? null,
         ]]);
+    }
+
+    /**
+     * 增量拉取出站事件（Outbox）：GET /api/v1/events?since=&limit=
+     */
+    public function events(Request $request): Response
+    {
+        if ($denied = $this->authorize($request)) {
+            return $denied;
+        }
+        $since = (string) ($request->query['since'] ?? '');
+        $limit = min(500, max(1, $request->int('limit', 100)));
+        $rows = $this->app->outbox->since($since, $limit);
+
+        $events = [];
+        $cursor = $since;
+        foreach ($rows as $row) {
+            $events[] = [
+                'id' => $row['event_id'] ?? $row['id'],
+                'type' => $row['type'] ?? '',
+                'version' => (int) ($row['version'] ?? 1),
+                'occurred_at' => $row['created_at'] ?? null,
+                'source' => 'payflow',
+                'subject' => $row['subject'] ?? [],
+                'data' => $row['data'] ?? [],
+                'idempotency_key' => $row['idempotency_key'] ?? null,
+            ];
+            $cursor = (string) ($row['created_at'] ?? $cursor);
+        }
+
+        return Response::json(['ok' => true, 'events' => $events, 'cursor' => $cursor]);
+    }
+
+    /**
+     * 入站事件：POST /api/v1/events（HMAC 鉴权；idempotency_key 去重）
+     */
+    public function eventsIngest(Request $request): Response
+    {
+        if ($denied = $this->authorize($request)) {
+            return $denied;
+        }
+        $payload = $request->payload();
+        if (!is_array($payload) || ($payload['type'] ?? '') === '') {
+            return Response::json(['ok' => false, 'error' => '缺少事件 type'], 422);
+        }
+        $result = $this->app->inboundEventService->handle($payload);
+
+        return Response::json($result);
     }
 
     public function analytics(Request $request): Response

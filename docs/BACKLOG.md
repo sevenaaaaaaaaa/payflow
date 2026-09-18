@@ -16,11 +16,11 @@
 
 | # | 事项 | 类 | 状态 | 说明 |
 |---|---|---|---|---|
-| 1 | 统一事件信封（id/version/subject/idempotency_key） | 🔴 | ⬜ | 向后兼容补字段，见 `docs/EVENTS.md` |
-| 2 | 入站事件 `POST /api/v1/events`（HMAC+幂等） | 🔴 | ⬜ | LearnFlow/UserLoop → PayFlow |
-| 3 | 增量拉取 `GET /api/v1/events?since=` | 🔴 | ⬜ | 最终一致，不依赖 webhook 可达 |
-| 4 | `bin/propose.php`（AI 提议，人工批准） | 🟢 | ⬜ | 读审计+指标 → DeepSeek → 提案 |
-| 5 | 统一主体 `subject{email,external_id,tenant}` | 🔴 | ⬜ | 多产品身份对齐 |
+| 1 | 统一事件信封（id/version/subject/idempotency_key） | 🔴 | ✅ | 出站已按信封发送，兼容旧字段 |
+| 2 | 入站事件 `POST /api/v1/events`（HMAC+幂等） | 🔴 | ✅ | 支持 entitlement.revoke / customer.update |
+| 3 | 增量拉取 `GET /api/v1/events?since=` | 🔴 | ✅ | Outbox + 游标 |
+| 4 | `bin/propose.php`（AI 提议，人工批准） | 🟢 | ✅ | 读审计+指标 → DeepSeek → `docs/PROPOSALS.md` |
+| 5 | 统一主体 `subject{email,external_id,tenant}` | 🔴 | 🟡 | 结账可带 external_id/tenant，客户/订单已落库 |
 
 ## T1 · 治理与体验
 

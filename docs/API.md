@@ -33,6 +33,8 @@ Authorization: Bearer <key_id>.<secret>
 | GET | `/api/v1/orders/{orderNo}` | 查询订单 |
 | GET/POST | `/api/v1/coupons/validate` | 优惠券试算（product, code, email?） |
 | GET | `/api/v1/analytics/summary?days=30` | 经营汇总（GMV/漏斗/订阅/佣金/渠道） |
+| GET | `/api/v1/events?since=&limit=` | 增量拉取出站事件（Outbox；游标为上一批最后 `occurred_at`） |
+| POST | `/api/v1/events` | 入站事件（`idempotency_key` 去重；支持 `entitlement.revoke` / `customer.update`） |
 | GET/POST | `/api/v1/licenses/validate` | 校验 License 密钥（body/query: license_key） |
 
 返回统一 JSON：成功 `{"ok":true,...}`，失败 `{"ok":false,"error":"..."}`（HTTP 401/404/422）。

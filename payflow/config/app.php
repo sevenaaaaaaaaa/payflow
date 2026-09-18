@@ -137,6 +137,15 @@ return [
         'key_prefix' => 'pfk_',
     ],
 
+    // AI 提议（自我进化：读审计+指标 → 生成提案，人工批准后才实现）
+    'ai' => [
+        'enabled' => false,
+        'base_url' => 'https://api.deepseek.com/v1',
+        'api_key' => '',
+        'model' => 'deepseek-chat',
+        'timeout' => 60,
+    ],
+
     // 维护策略
     'maintenance' => [
         'events_retention_days' => 180,   // 事件日志保留天数
