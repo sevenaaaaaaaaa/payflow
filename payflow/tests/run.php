@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 
 $config = require dirname(__DIR__) . '/bootstrap.php';
+$GLOBALS['PF_BASE_PATH'] = ''; // 测试固定无子路径，避免依赖 data/config.json
 
 use PayFlow\Domain\OrderStateMachine;
 use PayFlow\Payment\Signer\AlipaySigner;

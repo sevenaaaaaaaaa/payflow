@@ -107,7 +107,8 @@ foreach ($all as $f) {
     $blob .= (string) file_get_contents($f) . "\n";
 }
 $noise = ['__construct', 'all', 'find', 'has', 'where', 'put', 'delete', 'mutate', 'driver', 'firstBy',
-    'query', 'count', 'aggregate', 'search', 'searchCount', 'groupByDay',
+    'query', 'count', 'aggregate', 'search', 'searchCount', 'groupByDay', 'queryConditions',
+    'csrfToken', 'verifyCsrf', 'rememberNext', 'pullNext',
     'id', 'label', 'isEnabled', 'createPayment', 'parseNotify', 'refund'];
 $dead = [];
 foreach ($src as $f) {
@@ -142,6 +143,8 @@ $accepted = [
     'Domain/ProductRepository.php' => 'active（小集合）',
     'Domain/SubscriptionRepository.php' => 'dueForRenewal/expiringWithinDays（cron）',
     'Domain/WebhookDeliveryRepository.php' => 'dueForRetry（cron）',
+    'Domain/RateLimitRepository.php' => 'pruneBefore（cron 清理）',
+    'Domain/LoginAttemptRepository.php' => 'pruneOlderThan（cron 清理）',
 ];
 $hotReal = [];
 foreach ($hot as $line) {
