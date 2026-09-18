@@ -48,6 +48,27 @@
 - [x] 版本/弃用面：`GET /api/v1/version`
 - [ ] 日配额、可观测扩展（错误率面板）
 
+## 六、已联调：PayFlow → LearnFlow（课程售卖 / 开课）
+
+| 项 | 值 |
+|---|---|
+| 通道 | PayFlow 出站 Webhook → `POST https://nownexts.com/learnflow/api/payflow-webhook.php` |
+| 鉴权 | `X-PayFlow-Signature = hex(HMAC_SHA256(secret, body))`（两端共享密钥） |
+| 触发事件 | `order.paid`（入学）；`order.delivered` 被安全忽略 |
+| 映射 | LearnFlow 课程字段 `payflow_product_id` = PayFlow 商品 `id` |
+| 载荷 | 统一信封；订单字段在 `data` 下，含 `product_id / order_no / email / amount_number / amount_cents / coupon_code / ref_code` |
+
+配置位置：
+- PayFlow：`data/config.json → webhooks.order = { enabled, url, secret }`
+- LearnFlow：`data/settings.json → payflow = { enabled, base_url, secret }`
+
+已实现兼容：LearnFlow 接收端适配统一信封（`type/event`、`data/order/顶层`、金额归一化）；
+PayFlow 订单公开字段补 `product_id` 与数值金额。
+
+**联调验证（2026-09-18）**：PayFlow 商品 ↔ LearnFlow 课程映射后，下单支付 → Webhook 投递 200 → LearnFlow 学籍建立（幂等）。
+
+**反向通道（规划）**：LearnFlow 退课/退款 → `POST /api/v1/events`（`type: entitlement.revoke`，HMAC + 幂等键）→ PayFlow 撤销权益。
+
 ## 四、互通不变量（不可协商）
 
 1. 每个产品独立可用；互通是增益。
