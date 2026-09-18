@@ -21,6 +21,21 @@ if (!function_exists('pf_json')) {
     }
 }
 
+if (!function_exists('pf_csrf_token')) {
+    /** 当前会话的 CSRF 令牌（无会话时返回空串） */
+    function pf_csrf_token(): string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return '';
+        }
+        if (empty($_SESSION['pf_csrf'])) {
+            $_SESSION['pf_csrf'] = bin2hex(random_bytes(16));
+        }
+
+        return (string) $_SESSION['pf_csrf'];
+    }
+}
+
 if (!function_exists('pf_base_path')) {
     /** 当前挂载子路径（默认空），如 /payflow */
     function pf_base_path(): string

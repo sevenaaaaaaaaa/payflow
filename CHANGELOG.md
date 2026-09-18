@@ -2,6 +2,12 @@
 
 版本号见 `payflow/config/app.php → app.version`，对外经 `GET /api/v1/meta` 暴露。
 
+## [1.0.2] — 2026-09-18
+
+- 弃用面：`X-API-Version` + `Deprecation/Sunset/Link` 头（`config.api.deprecations`）
+- 审计页服务端分页 + 关键字筛选
+- 后台写操作 CSRF 防护（会话令牌，419 拒绝）
+
 ## [1.0.1] — 2026-09-18
 
 - 互通：统一事件信封 + Outbox 增量拉取 + 入站事件（幂等）+ `subject.external_id/tenant`

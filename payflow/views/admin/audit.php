@@ -1,13 +1,13 @@
 <?php
 $active = 'audit';
 require __DIR__ . '/../partials/admin-head.php';
-$filtered = $q === '' ? $events : array_values(array_filter($events, static fn (array $e): bool => str_contains(strtolower((string) $e['type']), $q) || str_contains(strtolower(json_encode($e['payload'] ?? []) ?: ''), $q)));
+$pages = max(1, (int) ceil(($total ?? count($events)) / max(1, $perPage ?? 50)));
 ?>
 
 <section style="padding:28px 0 16px" class="pf-row-between">
   <div>
     <h1 style="font-size:24px;font-weight:700">操作审计</h1>
-    <p class="pf-muted" style="margin-top:6px">订单 / 订阅 / 佣金 / 提现 / 资产等全部事件。</p>
+    <p class="pf-muted" style="margin-top:6px">共 <?= (int) ($total ?? count($events)) ?> 条 · 订单 / 订阅 / 佣金 / 提现 / 资产等全部事件。</p>
   </div>
   <form method="get" action="<?= pf_url('/admin/audit') ?>" class="pf-row-between" style="gap:8px">
     <input class="pf-input" name="q" value="<?= pf_e((string) $q) ?>" placeholder="筛选事件类型/关键字" style="width:220px">
@@ -19,16 +19,27 @@ $filtered = $q === '' ? $events : array_values(array_filter($events, static fn (
   <table class="pf-table">
     <thead><tr><th>时间</th><th>类型</th><th>详情</th></tr></thead>
     <tbody>
-    <?php foreach ($filtered as $event): ?>
+    <?php foreach ($events as $event): ?>
       <tr>
         <td class="pf-faint" style="white-space:nowrap"><?= pf_e(substr((string) $event['created_at'], 0, 19)) ?></td>
         <td class="pf-mono"><?= pf_e((string) $event['type']) ?></td>
         <td class="pf-mono" style="max-width:520px;word-break:break-all;font-size:11.5px"><?= pf_e((string) json_encode($event['payload'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></td>
       </tr>
     <?php endforeach; ?>
-    <?php if ($filtered === []): ?><tr><td colspan="3" class="pf-faint">无匹配事件</td></tr><?php endif; ?>
+    <?php if ($events === []): ?><tr><td colspan="3" class="pf-faint">无匹配事件</td></tr><?php endif; ?>
     </tbody>
   </table>
 </div>
+
+<?php if ($pages > 1): ?>
+  <div class="pf-row-between" style="margin-top:16px">
+    <span class="pf-faint">第 <?= (int) $page ?> / <?= (int) $pages ?> 页</span>
+    <div style="display:flex;gap:8px">
+      <?php $qs = $q !== '' ? '&q=' . rawurlencode($q) : ''; ?>
+      <?php if ($page > 1): ?><a class="pf-btn ghost sm" href="<?= pf_url('/admin/audit?page=' . ($page - 1) . $qs) ?>">上一页</a><?php endif; ?>
+      <?php if ($page < $pages): ?><a class="pf-btn ghost sm" href="<?= pf_url('/admin/audit?page=' . ($page + 1) . $qs) ?>">下一页</a><?php endif; ?>
+    </div>
+  </div>
+<?php endif; ?>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

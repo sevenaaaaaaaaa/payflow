@@ -29,7 +29,21 @@ $nav = [
 <link rel="stylesheet" href="<?= pf_asset('tokens.css') ?>">
 <link rel="stylesheet" href="<?= pf_asset('modules.css') ?>">
 <link rel="stylesheet" href="<?= pf_asset('checkout.css') ?>">
+<meta name="csrf-token" content="<?= pf_e(pf_csrf_token()) ?>">
 <script><?= $themeScript ?></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) { return; }
+  document.querySelectorAll('form').forEach(function (f) {
+    if ((f.getAttribute('method') || 'get').toLowerCase() !== 'post') { return; }
+    if (f.querySelector('input[name="_csrf"]')) { return; }
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = '_csrf'; i.value = meta.content;
+    f.appendChild(i);
+  });
+});
+</script>
 </head>
 <body>
 <div class="pf-wrap">

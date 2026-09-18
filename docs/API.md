@@ -24,6 +24,12 @@ X-PF-Signature: hex( HMAC_SHA256( secret, timestamp + "\n" + METHOD + "\n" + PAT
 Authorization: Bearer <key_id>.<secret>
 ```
 
+## 版本与弃用
+
+- 所有 `/api/v1/*` 响应带 `X-API-Version: v1`。
+- 命中弃用的端点返回 `Deprecation: true`、`Sunset: <HTTP-date>`、`Link: <replacement>; rel="deprecation"`。
+- 配置：`config.api.deprecations = [{ path, deprecated_at, sunset_at, replacement }]`。
+
 ## 限流与沙箱
 
 - 限流：每 Key 每分钟请求上限（默认 120，`config.api.rate_limit`）。超限返回 **429** + `Retry-After` + `X-RateLimit-*`。

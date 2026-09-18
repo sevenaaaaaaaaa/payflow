@@ -81,8 +81,27 @@ final class AdminAuth
         $_SESSION['pf_admin_ok'] = true;
         $_SESSION['pf_admin_user'] = $user;
         $_SESSION['pf_admin_at'] = time();
+        $_SESSION['pf_csrf'] = bin2hex(random_bytes(16));
 
         return true;
+    }
+
+    public function csrfToken(): string
+    {
+        $this->bootSession();
+        if (empty($_SESSION['pf_csrf'])) {
+            $_SESSION['pf_csrf'] = bin2hex(random_bytes(16));
+        }
+
+        return (string) $_SESSION['pf_csrf'];
+    }
+
+    public function verifyCsrf(Request $request): bool
+    {
+        $this->bootSession();
+        $token = (string) ($request->input('_csrf', '') ?: $request->header('X-CSRF-Token', '') ?? '');
+
+        return $token !== '' && hash_equals((string) ($_SESSION['pf_csrf'] ?? ''), $token);
     }
 
 

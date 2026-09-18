@@ -28,6 +28,11 @@ final class ApiController
         }
         $this->currentKey = $result['key'] ?? null;
 
+        if (!headers_sent()) {
+            header('X-API-Version: v1');
+            $this->deprecationHeaders($request);
+        }
+
         $rl = $this->app->rateLimiter->check((string) ($this->currentKey['id'] ?? ''));
         if (!($rl['allowed'] ?? true)) {
             return new Response(
@@ -43,6 +48,28 @@ final class ApiController
         }
 
         return null;
+    }
+
+    private function deprecationHeaders(Request $request): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+        $base = rtrim(pf_base_path(), '/');
+        $path = $base !== '' && str_starts_with($request->path, $base) ? substr($request->path, strlen($base)) : $request->path;
+        foreach ((array) \PayFlow\Support\Arr::get($this->app->config, 'api.deprecations', []) as $d) {
+            $prefix = (string) ($d['path'] ?? '');
+            if ($prefix === '' || !str_starts_with($path, $prefix)) {
+                continue;
+            }
+            header('Deprecation: true');
+            if (!empty($d['sunset_at'])) {
+                header('Sunset: ' . gmdate('D, d M Y H:i:s', strtotime((string) $d['sunset_at'])) . ' GMT');
+            }
+            if (!empty($d['replacement'])) {
+                header('Link: <' . (string) $d['replacement'] . '>; rel="deprecation"');
+            }
+        }
     }
 
     /**

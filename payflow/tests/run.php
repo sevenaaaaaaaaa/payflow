@@ -546,6 +546,12 @@ $gsum = $gApp->analyticsService->summary(30);
 check('看板排除沙箱订单', (int) $gsum['paid'] === 0 && (int) $gsum['gmv_cents'] === 0);
 rrmdir($tmpG);
 
+$csrfAuth = new \PayFlow\Http\AdminAuth(['admin' => ['username' => 'admin', 'password' => 'x', 'session_key' => 'pf_admin_test']]);
+$csrfTok = $csrfAuth->csrfToken();
+check('CSRF 令牌可生成', $csrfTok !== '');
+check('CSRF 正确令牌通过', $csrfAuth->verifyCsrf(new \PayFlow\Http\Request('POST', '/admin/products', [], ['_csrf' => $csrfTok], [], '')));
+check('CSRF 错误令牌拒绝', !$csrfAuth->verifyCsrf(new \PayFlow\Http\Request('POST', '/admin/products', [], [], ['X-CSRF-Token' => 'bad'], '')));
+
 echo "\n" . str_repeat('─', 40) . "\n";
 echo "通过 {$passed} · 失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

@@ -49,6 +49,9 @@ final class AdminController
 
     public function logout(Request $request): Response
     {
+        if ($request->method === 'POST' && !$this->auth->verifyCsrf($request)) {
+            return Response::html(View::render('error', ['code' => 419, 'message' => '表单已过期，请刷新后重试']), 419);
+        }
         $this->auth->logout();
 
         return Response::redirect(pf_url('/'));
@@ -88,7 +91,14 @@ final class AdminController
      */
     private function guard(Request $request): ?Response
     {
-        return $this->auth->attempt($request) ? null : Response::redirect(pf_url('/'));
+        if (!$this->auth->attempt($request)) {
+            return Response::redirect(pf_url('/'));
+        }
+        if ($request->method === 'POST' && !$this->auth->verifyCsrf($request)) {
+            return Response::html(View::render('error', ['code' => 419, 'message' => '表单已过期，请刷新后重试']), 419);
+        }
+
+        return null;
     }
 
     public function dashboard(Request $request): Response
@@ -328,10 +338,23 @@ final class AdminController
             return $denied;
         }
         $q = strtolower($request->string('q'));
+        $perPage = 50;
+        $page = max(1, $request->int('page', 1));
+        $fields = ['type', 'payload'];
+        if ($q === '') {
+            $total = $this->app->events->countWhere([]);
+            $events = $this->app->events->query([], $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
+        } else {
+            $total = $this->app->events->searchCount($fields, $q);
+            $events = $this->app->events->search($fields, $q, $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
+        }
 
         return Response::html(View::render('admin/audit', [
-            'events' => $this->app->events->recent(300),
+            'events' => $events,
             'q' => $q,
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
         ]));
     }
 
