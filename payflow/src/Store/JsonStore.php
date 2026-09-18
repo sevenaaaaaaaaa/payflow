@@ -128,6 +128,113 @@ final class JsonStore implements StoreInterface
         return $n;
     }
 
+    public function aggregate(array $conditions = [], ?string $groupField = null, ?string $sumField = null): array
+    {
+        $groups = [];
+        foreach ($this->all() as $r) {
+            if (!self::matchConditions($r, $conditions)) {
+                continue;
+            }
+            $key = $groupField !== null ? (string) ($r[$groupField] ?? '') : '_all';
+            $groups[$key] ??= ['key' => $key, 'count' => 0, 'sum' => 0];
+            $groups[$key]['count']++;
+            $groups[$key]['sum'] += $sumField !== null ? (int) ($r[$sumField] ?? 0) : 1;
+        }
+        $out = array_values($groups);
+        if ($groupField !== null) {
+            usort($out, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+        }
+
+        return $out;
+    }
+
+    public function search(array $fields, string $term, int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        $term = strtolower($term);
+        $rows = [];
+        foreach ($this->all() as $r) {
+            if (self::matchSearch($r, $fields, $term)) {
+                $rows[] = $r;
+            }
+        }
+        if ($orderBy !== null) {
+            $dir = strtolower($direction) === 'asc' ? 1 : -1;
+            usort($rows, static fn (array $a, array $b): int => $dir * strcmp((string) ($a[$orderBy] ?? ''), (string) ($b[$orderBy] ?? '')));
+        }
+
+        return array_slice($rows, $offset, $limit > 0 ? $limit : null);
+    }
+
+    public function searchCount(array $fields, string $term): int
+    {
+        $term = strtolower($term);
+        $n = 0;
+        foreach ($this->all() as $r) {
+            if (self::matchSearch($r, $fields, $term)) {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
+    /** @param list<array{field:string,op:string,value:mixed}> $conditions */
+    private static function matchConditions(array $r, array $conditions): bool
+    {
+        foreach ($conditions as $c) {
+            $actual = (string) ($r[$c['field']] ?? '');
+            $value = $c['value'];
+            $ok = match ($c['op']) {
+                '=' => $actual === (string) $value,
+                '!=' => $actual !== (string) $value,
+                '>' => $actual > (string) $value,
+                '>=' => $actual >= (string) $value,
+                '<' => $actual < (string) $value,
+                '<=' => $actual <= (string) $value,
+                'in' => in_array($actual, array_map('strval', (array) $value), true),
+                'like' => str_contains(strtolower($actual), strtolower((string) $value)),
+                default => true,
+            };
+            if (!$ok) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param list<string> $fields */
+    private static function matchSearch(array $r, array $fields, string $term): bool
+    {
+        foreach ($fields as $f) {
+            if (str_contains(strtolower((string) ($r[$f] ?? '')), $term)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function groupByDay(string $dateField, array $conditions = [], ?string $sumField = null): array
+    {
+        $groups = [];
+        foreach ($this->all() as $r) {
+            if (!self::matchConditions($r, $conditions)) {
+                continue;
+            }
+            $key = substr((string) ($r[$dateField] ?? ''), 0, 10);
+            if ($key === '') {
+                continue;
+            }
+            $groups[$key] ??= ['key' => $key, 'count' => 0, 'sum' => 0];
+            $groups[$key]['count']++;
+            $groups[$key]['sum'] += $sumField !== null ? (int) ($r[$sumField] ?? 0) : 1;
+        }
+        ksort($groups);
+
+        return array_values($groups);
+    }
+
     public function put(array $record): array
     {
         $id = (string) ($record['id'] ?? '');

@@ -7,11 +7,12 @@ namespace PayFlow\Service;
 use PayFlow\Domain\CommissionRepository;
 use PayFlow\Domain\CustomerRepository;
 use PayFlow\Domain\OrderRepository;
-use PayFlow\Domain\OrderStateMachine;
 use PayFlow\Domain\SubscriptionRepository;
 
 /**
- * 数据看板：GMV / 转化漏斗 / 订阅流失 / 渠道 / 佣金。
+ * 数据看板：GMV / 转化漏斗 / 订阅健康 / 渠道 / 佣金。
+ *
+ * 聚合全部下推数据库（MySQL JSON_EXTRACT / SQLite·JSON 回退 PHP），不再整表加载。
  */
 final class AnalyticsService
 {
@@ -28,59 +29,59 @@ final class AnalyticsService
      */
     public function summary(int $days = 30): array
     {
-        $since = time() - $days * 86400;
-        $range = array_filter($this->orders->all(), static fn (array $o): bool => (strtotime((string) $o['created_at']) ?: 0) >= $since);
+        $since = date('c', time() - $days * 86400);
+        $inRange = [['field' => 'created_at', 'op' => '>=', 'value' => $since]];
+        $paidLike = array_merge($inRange, [['field' => 'status', 'op' => 'in', 'value' => ['paid', 'delivered']]]);
 
-        $paid = 0;
-        $refunded = 0;
-        $gmv = 0;
-        $refundAmount = 0;
-        $discount = 0;
+        $created = $this->one($this->orders->aggregate($inRange))['count'];
+        $paidAgg = $this->one($this->orders->aggregate($paidLike));
+        $paid = $paidAgg['count'];
+        $gmv = $this->one($this->orders->aggregate($paidLike, null, 'amount_cents'))['sum'];
+        $delivered = $this->one($this->orders->aggregate(array_merge($inRange, [['field' => 'status', 'op' => '=', 'value' => 'delivered']])))['count'];
+        $refundedCond = array_merge($inRange, [['field' => 'status', 'op' => '=', 'value' => 'refunded']]);
+        $refundedAgg = ['count' => $this->one($this->orders->aggregate($refundedCond))['count'], 'sum' => $this->one($this->orders->aggregate($refundedCond, null, 'amount_cents'))['sum']];
+        $discount = $this->one($this->orders->aggregate($paidLike, null, 'discount_cents'))['sum'];
+
         $channels = [];
-        foreach ($range as $order) {
-            $status = (string) $order['status'];
-            if (in_array($status, [OrderStateMachine::PAID, OrderStateMachine::DELIVERED], true)) {
-                $paid++;
-                $gmv += (int) $order['amount_cents'];
-                $discount += (int) ($order['discount_cents'] ?? 0);
-                $channel = (string) ($order['channel'] ?? 'unknown');
-                $channels[$channel] ??= ['count' => 0, 'gmv' => 0];
-                $channels[$channel]['count']++;
-                $channels[$channel]['gmv'] += (int) $order['amount_cents'];
-            } elseif ($status === OrderStateMachine::REFUNDED) {
-                $refunded++;
-                $refundAmount += (int) $order['amount_cents'];
-            }
+        foreach ($this->orders->aggregate($paidLike, 'channel', 'amount_cents') as $row) {
+            $channels[(string) $row['key']] = ['count' => $row['count'], 'gmv' => $row['sum']];
         }
 
-        $delivered = count(array_filter($range, static fn (array $o): bool => ($o['status'] ?? '') === OrderStateMachine::DELIVERED));
-        $created = count($range);
+        $subStats = ['active' => 0, 'past_due' => 0, 'canceled' => 0, 'mrr_cents' => 0];
+        foreach ($this->subscriptions->aggregate([], 'status') as $row) {
+            if (array_key_exists((string) $row['key'], $subStats)) {
+                $subStats[(string) $row['key']] = $row['count'];
+            }
+        }
+        $mrr = 0;
+        foreach ($this->subscriptions->aggregate([['field' => 'status', 'op' => '=', 'value' => 'active']], 'interval', 'amount_cents') as $row) {
+            $mrr += ((string) $row['key'] === 'year') ? (int) round($row['sum'] / 12) : $row['sum'];
+        }
+        $subStats['mrr_cents'] = $mrr;
 
-        $subStats = $this->subscriptions->stats();
-        $cancelledSubs = count(array_filter($this->subscriptions->all(), static fn (array $s): bool => ($s['status'] ?? '') === 'canceled'));
-        $newCustomers = count(array_filter($this->customers->all(), static fn (array $c): bool => (strtotime((string) $c['created_at']) ?: 0) >= $since));
+        $newCustomers = $this->one($this->customers->aggregate($inRange))['count'];
 
-        $commission = [
-            'pending' => $this->sumStatus('pending'),
-            'available' => $this->sumStatus('available'),
-            'paid' => $this->sumStatus('paid'),
-            'reversed' => $this->sumStatus('reversed'),
-        ];
+        $commission = ['pending' => 0, 'available' => 0, 'paid' => 0, 'reversed' => 0];
+        foreach ($this->commissions->aggregate([], 'status', 'amount_cents') as $row) {
+            if (array_key_exists((string) $row['key'], $commission)) {
+                $commission[(string) $row['key']] = $row['sum'];
+            }
+        }
 
         return [
             'days' => $days,
             'created' => $created,
             'paid' => $paid,
             'delivered' => $delivered,
-            'refunded' => $refunded,
+            'refunded' => $refundedAgg['count'],
             'gmv_cents' => $gmv,
             'aov_cents' => $paid > 0 ? (int) round($gmv / $paid) : 0,
-            'refund_cents' => $refundAmount,
+            'refund_cents' => $refundedAgg['sum'],
             'discount_cents' => $discount,
             'conversion_rate' => $created > 0 ? round($paid / $created * 100, 1) : 0.0,
             'funnel' => ['created' => $created, 'paid' => $paid, 'delivered' => $delivered],
             'channels' => $channels,
-            'subscriptions' => $subStats + ['cancelled' => $cancelledSubs],
+            'subscriptions' => $subStats + ['cancelled' => $subStats['canceled']],
             'new_customers' => $newCustomers,
             'commission' => $commission,
         ];
@@ -91,37 +92,36 @@ final class AnalyticsService
      */
     public function series(int $days = 30): array
     {
-        $buckets = [];
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $buckets[date('Y-m-d', time() - $i * 86400)] = ['gmv_cents' => 0, 'orders' => 0];
+        $since = date('c', time() - $days * 86400);
+        $rows = $this->orders->groupByDay('created_at', [
+            ['field' => 'created_at', 'op' => '>=', 'value' => $since],
+            ['field' => 'status', 'op' => 'in', 'value' => ['paid', 'delivered']],
+        ], 'amount_cents');
+
+        $byDate = [];
+        foreach ($rows as $row) {
+            $byDate[(string) $row['key']] = ['gmv_cents' => $row['sum'], 'orders' => $row['count']];
         }
-        foreach ($this->orders->all() as $order) {
-            if (!in_array((string) $order['status'], [OrderStateMachine::PAID, OrderStateMachine::DELIVERED], true)) {
-                continue;
-            }
-            $date = date('Y-m-d', strtotime((string) $order['created_at']) ?: 0);
-            if (isset($buckets[$date])) {
-                $buckets[$date]['gmv_cents'] += (int) $order['amount_cents'];
-                $buckets[$date]['orders']++;
-            }
-        }
+
         $out = [];
-        foreach ($buckets as $date => $row) {
-            $out[] = ['date' => $date, 'gmv_cents' => $row['gmv_cents'], 'orders' => $row['orders']];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = date('Y-m-d', time() - $i * 86400);
+            $out[] = [
+                'date' => $date,
+                'gmv_cents' => $byDate[$date]['gmv_cents'] ?? 0,
+                'orders' => $byDate[$date]['orders'] ?? 0,
+            ];
         }
 
         return $out;
     }
 
-    private function sumStatus(string $status): int
+    /**
+     * @param list<array{key:string,count:int,sum:int}> $rows
+     * @return array{key:string,count:int,sum:int}
+     */
+    private function one(array $rows): array
     {
-        $sum = 0;
-        foreach ($this->commissions->all() as $commission) {
-            if (($commission['status'] ?? '') === $status) {
-                $sum += (int) ($commission['amount_cents'] ?? 0);
-            }
-        }
-
-        return $sum;
+        return $rows[0] ?? ['key' => '_all', 'count' => 0, 'sum' => 0];
     }
 }

@@ -558,23 +558,11 @@ final class AdminController
 
             return [$slice, $total, $page, $perPage, ''];
         }
-        $orders = array_values($this->app->orders->all());
-        if ($q !== '') {
-            $orders = array_filter($orders, static function (array $o) use ($q): bool {
-                foreach (['order_no', 'email', 'product_name', 'status', 'coupon_code', 'referral_code'] as $field) {
-                    if (str_contains(strtolower((string) ($o[$field] ?? '')), $q)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
-            $orders = array_values($orders);
-        }
-        usort($orders, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
-        $total = count($orders);
+        $fields = ['order_no', 'email', 'product_name', 'status', 'coupon_code', 'referral_code'];
+        $total = $this->app->orders->searchCount($fields, $q);
         $page = max(1, $forcePage ?? $request->int('page', 1));
         $perPage = max(1, $perPage);
-        $slice = array_slice($orders, ($page - 1) * $perPage, $perPage);
+        $slice = $this->app->orders->search($fields, $q, $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
 
         return [$slice, $total, $page, $perPage, $q];
     }

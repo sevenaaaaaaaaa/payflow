@@ -38,6 +38,34 @@ interface StoreInterface
     /** @param array<string,string> $filters */
     public function count(array $filters = []): int;
 
+    /**
+     * 聚合：conditions = [{field,op,value}]，op ∈ =,!=,>,>=,<,<=,in,like。
+     * 返回 [{key,count,sum}]（无分组时 key 为 "_all"）。
+     *
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array{key:string,count:int,sum:int}>
+     */
+    public function aggregate(array $conditions = [], ?string $groupField = null, ?string $sumField = null): array;
+
+    /**
+     * 多字段关键字检索（OR LIKE），SQL 下推分页。
+     *
+     * @param list<string> $fields
+     * @return list<array>
+     */
+    public function search(array $fields, string $term, int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array;
+
+    /** @param list<string> $fields */
+    public function searchCount(array $fields, string $term): int;
+
+    /**
+     * 按天分组（日期取自 dateField 的前 10 位）。
+     *
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array{key:string,count:int,sum:int}>
+     */
+    public function groupByDay(string $dateField, array $conditions = [], ?string $sumField = null): array;
+
     public function put(array $record): array;
 
     public function delete(string $id): void;

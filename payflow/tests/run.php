@@ -135,6 +135,19 @@ $qt->put(['id' => 'q3', 'kind' => 'b', 'created_at' => '2024-01-02T00:00:00+08:0
 check('query 等值过滤+排序', array_map(static fn (array $r): string => $r['id'], $qt->query(['kind' => 'a'], 0, 0, 'created_at', 'desc')) === ['q2', 'q1']);
 check('query 分页 offset/limit', array_map(static fn (array $r): string => $r['id'], $qt->query([], 2, 1, 'created_at', 'asc')) === ['q3', 'q2']);
 check('count 过滤计数', $qt->count(['kind' => 'a']) === 2);
+check('aggregate 条件计数', ($qt->aggregate([['field' => 'kind', 'op' => '=', 'value' => 'a']])[0]['count'] ?? 0) === 2);
+check('aggregate 分组求和', (function () use ($qt): bool {
+    foreach ($qt->aggregate([], 'kind', null) as $row) {
+        if ($row['key'] === 'a' && $row['count'] === 2) {
+            return true;
+        }
+    }
+    return false;
+})());
+check('aggregate in/范围条件', ($qt->aggregate([['field' => 'created_at', 'op' => '>=', 'value' => '2024-01-02']])[0]['count'] ?? 0) === 2);
+check('groupByDay 按天分组', ($qt->groupByDay('created_at')[0]['key'] ?? '') === '2024-01-01');
+check('search 多字段检索', count($qt->search(['kind'], 'a')) === 2 && $qt->searchCount(['kind'], 'a') === 2);
+check('search 空词返回全部', $qt->searchCount(['kind'], '') === 3);
 rrmdir($tmpDb);
 
 echo "\n[订阅续费引擎]\n";

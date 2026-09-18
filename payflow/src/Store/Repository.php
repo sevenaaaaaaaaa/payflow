@@ -49,6 +49,39 @@ abstract class Repository
     }
 
     /**
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array{key:string,count:int,sum:int}>
+     */
+    public function aggregate(array $conditions = [], ?string $groupField = null, ?string $sumField = null): array
+    {
+        return $this->store->aggregate($conditions, $groupField, $sumField);
+    }
+
+    /**
+     * @param list<string> $fields
+     * @return list<array>
+     */
+    public function search(array $fields, string $term, int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        return $this->store->search($fields, $term, $limit, $offset, $orderBy, $direction);
+    }
+
+    /** @param list<string> $fields */
+    public function searchCount(array $fields, string $term): int
+    {
+        return $this->store->searchCount($fields, $term);
+    }
+
+    /**
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array{key:string,count:int,sum:int}>
+     */
+    public function groupByDay(string $dateField, array $conditions = [], ?string $sumField = null): array
+    {
+        return $this->store->groupByDay($dateField, $conditions, $sumField);
+    }
+
+    /**
      * @param callable(array):bool $predicate
      * @return list<array>
      */

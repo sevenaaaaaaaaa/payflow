@@ -200,6 +200,262 @@ final class SqlStore implements StoreInterface
         return [implode(' AND ', $where), $params];
     }
 
+    public function aggregate(array $conditions = [], ?string $groupField = null, ?string $sumField = null): array
+    {
+        if ($this->driver !== 'mysql') {
+            $groups = [];
+            foreach ($this->all() as $r) {
+                if (!self::matchConditions($r, $conditions)) {
+                    continue;
+                }
+                $key = $groupField !== null ? (string) ($r[$groupField] ?? '') : '_all';
+                $groups[$key] ??= ['key' => $key, 'count' => 0, 'sum' => 0];
+                $groups[$key]['count']++;
+                if ($sumField !== null) {
+                    $groups[$key]['sum'] += (int) ($r[$sumField] ?? 0);
+                }
+            }
+
+            return array_values($groups);
+        }
+
+        $params = ['c' => $this->collection];
+        [$where, $params] = $this->buildConditions($conditions, $params);
+        $groupExpr = ($groupField !== null && preg_match('/^[A-Za-z0-9_]+$/', $groupField))
+            ? "JSON_UNQUOTE(JSON_EXTRACT(data, '$.{$groupField}'))"
+            : "''";
+        $sumExpr = ($sumField !== null && preg_match('/^[A-Za-z0-9_]+$/', $sumField))
+            ? "COALESCE(SUM(CAST(JSON_EXTRACT(data, '$.{$sumField}') AS SIGNED)), 0)"
+            : 'COUNT(*)';
+        $sql = "SELECT {$groupExpr} AS k, COUNT(*) AS c, {$sumExpr} AS s FROM " . Database::table() . " WHERE {$where} GROUP BY k";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $out[] = [
+                'key' => $groupField !== null ? (string) ($row['k'] ?? '') : '_all',
+                'count' => (int) $row['c'],
+                'sum' => (int) $row['s'],
+            ];
+        }
+
+        return $out;
+    }
+
+    public function search(array $fields, string $term, int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        $term = strtolower(trim($term));
+        if ($term === '' || $fields === []) {
+            return $this->query([], $limit, $offset, $orderBy, $direction);
+        }
+        if ($this->driver !== 'mysql') {
+            $rows = [];
+            foreach ($this->all() as $r) {
+                foreach ($fields as $f) {
+                    if (str_contains(strtolower((string) ($r[$f] ?? '')), $term)) {
+                        $rows[] = $r;
+                        break;
+                    }
+                }
+            }
+            if ($orderBy !== null) {
+                $dir = strtolower($direction) === 'asc' ? 1 : -1;
+                usort($rows, static fn (array $a, array $b): int => $dir * strcmp((string) ($a[$orderBy] ?? ''), (string) ($b[$orderBy] ?? '')));
+            }
+
+            return array_slice($rows, $offset, $limit > 0 ? $limit : null);
+        }
+
+        [$or, $params] = $this->buildSearch($fields, $term, ['c' => $this->collection]);
+        $sql = 'SELECT data FROM ' . Database::table() . " WHERE collection = :c AND ({$or})";
+        if ($orderBy !== null && preg_match('/^[A-Za-z0-9_]+$/', $orderBy)) {
+            $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
+            $sql .= " ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, '$.{$orderBy}')) {$dir}";
+        }
+        if ($limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $decoded = json_decode((string) $row['data'], true);
+            if (is_array($decoded)) {
+                $out[] = $decoded;
+            }
+        }
+
+        return $out;
+    }
+
+    public function searchCount(array $fields, string $term): int
+    {
+        $term = strtolower(trim($term));
+        if ($term === '' || $fields === []) {
+            return $this->count();
+        }
+        if ($this->driver !== 'mysql') {
+            $n = 0;
+            foreach ($this->all() as $r) {
+                foreach ($fields as $f) {
+                    if (str_contains(strtolower((string) ($r[$f] ?? '')), $term)) {
+                        $n++;
+                        break;
+                    }
+                }
+            }
+
+            return $n;
+        }
+        [$or, $params] = $this->buildSearch($fields, $term, ['c' => $this->collection]);
+        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM ' . Database::table() . " WHERE collection = :c AND ({$or})");
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @param list<string> $fields
+     * @param array<string,mixed> $params
+     * @return array{0:string,1:array<string,mixed>}
+     */
+    private function buildSearch(array $fields, string $term, array $params): array
+    {
+        $or = [];
+        $needle = '%' . addcslashes($term, '%_\\') . '%';
+        $i = 0;
+        foreach ($fields as $f) {
+            if (!preg_match('/^[A-Za-z0-9_]+$/', (string) $f)) {
+                continue;
+            }
+            $key = 'q' . $i++;
+            $or[] = "LOWER(JSON_UNQUOTE(JSON_EXTRACT(data, '$.{$f}'))) LIKE :{$key}";
+            $params[$key] = $needle;
+        }
+        if ($or === []) {
+            $or[] = '1=0';
+        }
+
+        return [implode(' OR ', $or), $params];
+    }
+
+    /**
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @param array<string,mixed> $params
+     * @return array{0:string,1:array<string,mixed>}
+     */
+    private function buildConditions(array $conditions, array $params): array
+    {
+        $where = ['collection = :c'];
+        $i = 0;
+        foreach ($conditions as $c) {
+            $field = (string) ($c['field'] ?? '');
+            $op = (string) ($c['op'] ?? '=');
+            if (!preg_match('/^[A-Za-z0-9_]+$/', $field)) {
+                continue;
+            }
+            $expr = "JSON_UNQUOTE(JSON_EXTRACT(data, '$.{$field}'))";
+            if ($op === 'in') {
+                $vals = array_map('strval', (array) ($c['value'] ?? []));
+                if ($vals === []) {
+                    $where[] = '1=0';
+                    continue;
+                }
+                $ph = [];
+                foreach ($vals as $v) {
+                    $k = 'p' . $i++;
+                    $params[$k] = $v;
+                    $ph[] = ':' . $k;
+                }
+                $where[] = "{$expr} IN (" . implode(',', $ph) . ')';
+            } elseif ($op === 'like') {
+                $k = 'p' . $i++;
+                $params[$k] = '%' . addcslashes((string) ($c['value'] ?? ''), '%_\\') . '%';
+                $where[] = "{$expr} LIKE :{$k}";
+            } elseif (in_array($op, ['=', '!=', '>', '>=', '<', '<='], true)) {
+                $k = 'p' . $i++;
+                $params[$k] = (string) ($c['value'] ?? '');
+                $where[] = "{$expr} {$op} :{$k}";
+            }
+        }
+
+        return [implode(' AND ', $where), $params];
+    }
+
+    /** @param list<array{field:string,op:string,value:mixed}> $conditions */
+    private static function matchConditions(array $r, array $conditions): bool
+    {
+        foreach ($conditions as $c) {
+            $actual = (string) ($r[$c['field']] ?? '');
+            $value = $c['value'];
+            $ok = match ($c['op']) {
+                '=' => $actual === (string) $value,
+                '!=' => $actual !== (string) $value,
+                '>' => $actual > (string) $value,
+                '>=' => $actual >= (string) $value,
+                '<' => $actual < (string) $value,
+                '<=' => $actual <= (string) $value,
+                'in' => in_array($actual, array_map('strval', (array) $value), true),
+                'like' => str_contains(strtolower($actual), strtolower((string) $value)),
+                default => true,
+            };
+            if (!$ok) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function groupByDay(string $dateField, array $conditions = [], ?string $sumField = null): array
+    {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $dateField)) {
+            return [];
+        }
+        if ($this->driver !== 'mysql') {
+            return $this->groupByDayFallback($dateField, $conditions, $sumField);
+        }
+        $params = ['c' => $this->collection];
+        [$where, $params] = $this->buildConditions($conditions, $params);
+        $dayExpr = "SUBSTRING(JSON_UNQUOTE(JSON_EXTRACT(data, '$.{$dateField}')), 1, 10)";
+        $sumExpr = ($sumField !== null && preg_match('/^[A-Za-z0-9_]+$/', $sumField))
+            ? "COALESCE(SUM(CAST(JSON_EXTRACT(data, '$.{$sumField}') AS SIGNED)), 0)"
+            : 'COUNT(*)';
+        $sql = "SELECT {$dayExpr} AS k, COUNT(*) AS c, {$sumExpr} AS s FROM " . Database::table() . " WHERE {$where} GROUP BY k ORDER BY k ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $out[] = ['key' => (string) ($row['k'] ?? ''), 'count' => (int) $row['c'], 'sum' => (int) $row['s']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array{key:string,count:int,sum:int}>
+     */
+    private function groupByDayFallback(string $dateField, array $conditions, ?string $sumField): array
+    {
+        $groups = [];
+        foreach ($this->all() as $r) {
+            if (!self::matchConditions($r, $conditions)) {
+                continue;
+            }
+            $key = substr((string) ($r[$dateField] ?? ''), 0, 10);
+            if ($key === '') {
+                continue;
+            }
+            $groups[$key] ??= ['key' => $key, 'count' => 0, 'sum' => 0];
+            $groups[$key]['count']++;
+            $groups[$key]['sum'] += $sumField !== null ? (int) ($r[$sumField] ?? 0) : 1;
+        }
+        ksort($groups);
+
+        return array_values($groups);
+    }
+
     public function put(array $record): array
     {
         $id = (string) ($record['id'] ?? '');
