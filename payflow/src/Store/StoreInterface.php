@@ -39,6 +39,14 @@ interface StoreInterface
     public function count(array $filters = []): int;
 
     /**
+     * 按条件取行（op ∈ =,!=,>,>=,<,<=,in,like）。
+     *
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array>
+     */
+    public function queryConditions(array $conditions = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array;
+
+    /**
      * 聚合：conditions = [{field,op,value}]，op ∈ =,!=,>,>=,<,<=,in,like。
      * 返回 [{key,count,sum}]（无分组时 key 为 "_all"）。
      *

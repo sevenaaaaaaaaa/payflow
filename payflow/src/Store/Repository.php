@@ -58,6 +58,15 @@ abstract class Repository
     }
 
     /**
+     * @param list<array{field:string,op:string,value:mixed}> $conditions
+     * @return list<array>
+     */
+    public function queryConditions(array $conditions = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        return $this->store->queryConditions($conditions, $limit, $offset, $orderBy, $direction);
+    }
+
+    /**
      * @param list<string> $fields
      * @return list<array>
      */

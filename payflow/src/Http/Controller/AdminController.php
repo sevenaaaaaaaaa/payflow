@@ -804,6 +804,81 @@ final class AdminController
         return Response::redirect(pf_url('/admin/referrals'));
     }
 
+    /**
+     * 佣金结算报表（按时间范围汇总 + 分推荐人 + 明细）。
+     */
+    public function commissions(Request $request): Response
+    {
+        if ($denied = $this->guard($request)) {
+            return $denied;
+        }
+        [$from, $to, $conditions] = $this->commissionRange($request);
+        $summary = ['pending' => 0, 'available' => 0, 'paid' => 0, 'reversed' => 0];
+        foreach ($this->app->commissions->aggregate($conditions, 'status', 'amount_cents') as $row) {
+            if (array_key_exists((string) $row['key'], $summary)) {
+                $summary[(string) $row['key']] = $row['sum'];
+            }
+        }
+        $byReferrer = [];
+        foreach ($this->app->commissions->aggregate($conditions, 'referrer_email', 'amount_cents') as $row) {
+            $byReferrer[] = ['email' => (string) $row['key'], 'count' => $row['count'], 'amount' => $row['sum']];
+        }
+
+        return Response::html(View::render('admin/commissions', [
+            'from' => $from,
+            'to' => $to,
+            'summary' => $summary,
+            'total' => array_sum($summary),
+            'byReferrer' => $byReferrer,
+            'detail' => $this->app->commissions->queryConditions($conditions, 500, 0, 'created_at', 'desc'),
+        ]));
+    }
+
+    /**
+     * 佣金对账单导出（CSV）。
+     */
+    public function commissionsExport(Request $request): Response
+    {
+        if ($denied = $this->guard($request)) {
+            return $denied;
+        }
+        [$from, $to, $conditions] = $this->commissionRange($request);
+        $rows = $this->app->commissions->queryConditions($conditions, 20000, 0, 'created_at', 'asc');
+        $lines = ['时间,订单号,推荐人,订单金额,比例,佣金,状态,可提现时间'];
+        foreach ($rows as $c) {
+            $lines[] = implode(',', array_map(static fn ($v): string => '"' . str_replace('"', '""', (string) $v) . '"', [
+                $c['created_at'] ?? '',
+                $c['order_no'] ?? '',
+                $c['referrer_email'] ?? '',
+                number_format(((int) ($c['base_amount_cents'] ?? 0)) / 100, 2, '.', ''),
+                round(((float) ($c['rate'] ?? 0)) * 100, 2) . '%',
+                number_format(((int) ($c['amount_cents'] ?? 0)) / 100, 2, '.', ''),
+                $c['status'] ?? '',
+                $c['available_at'] ?? '',
+            ]));
+        }
+
+        return new Response(implode("\n", $lines) . "\n", 200, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="payflow-commissions-' . $from . '_' . $to . '.csv"',
+        ]);
+    }
+
+    /**
+     * @return array{0:string,1:string,2:list<array{field:string,op:string,value:mixed}>}
+     */
+    private function commissionRange(Request $request): array
+    {
+        $from = (string) ($request->query['from'] ?? date('Y-m-d', time() - 30 * 86400));
+        $to = (string) ($request->query['to'] ?? date('Y-m-d'));
+        $conditions = [
+            ['field' => 'created_at', 'op' => '>=', 'value' => $from . 'T00:00:00'],
+            ['field' => 'created_at', 'op' => '<=', 'value' => $to . 'T23:59:59'],
+        ];
+
+        return [$from, $to, $conditions];
+    }
+
     public function payouts(Request $request): Response
     {
         if ($denied = $this->guard($request)) {

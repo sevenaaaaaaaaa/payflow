@@ -236,6 +236,22 @@ final class JsonStore implements StoreInterface
         return array_values($groups);
     }
 
+    public function queryConditions(array $conditions = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        $rows = [];
+        foreach ($this->all() as $r) {
+            if (self::matchConditions($r, $conditions)) {
+                $rows[] = $r;
+            }
+        }
+        if ($orderBy !== null) {
+            $dir = strtolower($direction) === 'asc' ? 1 : -1;
+            usort($rows, static fn (array $a, array $b): int => $dir * strcmp((string) ($a[$orderBy] ?? ''), (string) ($b[$orderBy] ?? '')));
+        }
+
+        return array_slice($rows, $offset, $limit > 0 ? $limit : null);
+    }
+
     public function put(array $record): array
     {
         $id = (string) ($record['id'] ?? '');

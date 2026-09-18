@@ -135,6 +135,7 @@ $qt->put(['id' => 'q3', 'kind' => 'b', 'created_at' => '2024-01-02T00:00:00+08:0
 check('query 等值过滤+排序', array_map(static fn (array $r): string => $r['id'], $qt->query(['kind' => 'a'], 0, 0, 'created_at', 'desc')) === ['q2', 'q1']);
 check('query 分页 offset/limit', array_map(static fn (array $r): string => $r['id'], $qt->query([], 2, 1, 'created_at', 'asc')) === ['q3', 'q2']);
 check('count 过滤计数', $qt->count(['kind' => 'a']) === 2);
+check('queryConditions 范围查询', count($qt->queryConditions([['field' => 'created_at', 'op' => '>=', 'value' => '2024-01-02']])) === 2);
 check('aggregate 条件计数', ($qt->aggregate([['field' => 'kind', 'op' => '=', 'value' => 'a']])[0]['count'] ?? 0) === 2);
 check('aggregate 分组求和', (function () use ($qt): bool {
     foreach ($qt->aggregate([], 'kind', null) as $row) {
@@ -276,6 +277,12 @@ $o2 = $refApp->orderService->startCheckout($gid, 'buyer2@test.com', '买家2', '
 $refApp->orderService->markPaid((string) $o2['order']['id'], 'R2', 10000, []);
 $refApp->orderService->refund((string) $o2['order']['id'], 10000, 'test');
 check('退款冲正未打款佣金', ($refApp->commissions->forOrder((string) $o2['order']['id'])['status'] ?? '') === 'reversed');
+
+$reportStatus = [];
+foreach ($refApp->commissions->aggregate([], 'status', 'amount_cents') as $row) {
+    $reportStatus[(string) $row['key']] = $row['sum'];
+}
+check('佣金报表按状态汇总', (int) ($reportStatus['reversed'] ?? 0) === 2000 && (int) ($reportStatus['paid'] ?? 0) === 2000);
 
 $self = $refApp->orderService->startCheckout($gid, 'referrer@test.com', '自己', 'manual', ['referral' => (string) $referrer['code']]);
 $refApp->orderService->markPaid((string) $self['order']['id'], 'R3', 10000, []);

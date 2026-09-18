@@ -2,6 +2,13 @@
 
 版本号见 `payflow/config/app.php → app.version`，对外经 `GET /api/v1/meta` 暴露。
 
+## [1.0.4] — 2026-09-18
+
+- 佣金结算报表：按时间范围汇总（待解冻/可提现/已打款/已冲正）+ 按推荐人汇总 + 明细
+- 对账单导出 CSV：`/admin/commissions/export?from=&to=`
+- 存储层新增 `queryConditions()`（条件取行）
+- 自检 120 项
+
 ## [1.0.3] — 2026-09-18
 
 - 多目标 Webhook：`webhooks.endpoints`（每目标 URL/密钥/事件过滤），兼容单目标；后台展示目标与 endpoint

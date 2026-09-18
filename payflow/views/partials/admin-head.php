@@ -11,6 +11,7 @@ $nav = [
     'coupons' => ['/admin/coupons', '优惠券'],
     'vouchers' => ['/admin/vouchers', '兑换券'],
     'referrals' => ['/admin/referrals', '推荐'],
+    'commissions' => ['/admin/commissions', '佣金'],
     'payouts' => ['/admin/payouts', '提现'],
     'customers' => ['/admin/customers', '客户'],
     'analytics' => ['/admin/analytics', '看板'],

@@ -12,7 +12,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'PayFlow',
-        'version' => '1.0.3',
+        'version' => '1.0.4',
         'env' => 'production',
         'debug' => false,
         // 部署入口：主域名子路径（nownexts.com/payflow）。若改用独立子域，

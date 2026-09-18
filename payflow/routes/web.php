@@ -151,6 +151,8 @@ return static function (Router $router, Application $app): void {
     // ── 推荐 / 佣金 / 提现 ──
     $router->get('/admin/referrals', fn ($r) => $admin->referrals($r));
     $router->post('/admin/referrals/new', fn ($r) => $admin->referralCreate($r));
+    $router->get('/admin/commissions', fn ($r) => $admin->commissions($r));
+    $router->get('/admin/commissions/export', fn ($r) => $admin->commissionsExport($r));
     $router->get('/admin/payouts', fn ($r) => $admin->payouts($r));
     $router->post('/admin/payouts/{id}/{action}', fn ($r) => $admin->payoutAction($r));
 };

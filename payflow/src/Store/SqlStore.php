@@ -523,6 +523,46 @@ final class SqlStore implements StoreInterface
         return array_values($groups);
     }
 
+    public function queryConditions(array $conditions = [], int $limit = 0, int $offset = 0, ?string $orderBy = null, string $direction = 'desc'): array
+    {
+        if ($this->driver !== 'mysql') {
+            $rows = [];
+            foreach ($this->all() as $r) {
+                if (self::matchConditions($r, $conditions)) {
+                    $rows[] = $r;
+                }
+            }
+            if ($orderBy !== null) {
+                $dir = strtolower($direction) === 'asc' ? 1 : -1;
+                usort($rows, static fn (array $a, array $b): int => $dir * strcmp((string) ($a[$orderBy] ?? ''), (string) ($b[$orderBy] ?? '')));
+            }
+
+            return array_slice($rows, $offset, $limit > 0 ? $limit : null);
+        }
+
+        $params = ['c' => $this->collection];
+        [$where, $params] = $this->buildConditions($conditions, $params);
+        $sql = 'SELECT data FROM ' . Database::table() . ' WHERE ' . $where;
+        if ($orderBy !== null && preg_match('/^[A-Za-z0-9_]+$/', $orderBy)) {
+            $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
+            $sql .= " ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, '$.{$orderBy}')) {$dir}";
+        }
+        if ($limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset;
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $decoded = json_decode((string) $row['data'], true);
+            if (is_array($decoded)) {
+                $out[] = $decoded;
+            }
+        }
+
+        return $out;
+    }
+
     public function put(array $record): array
     {
         $id = (string) ($record['id'] ?? '');
