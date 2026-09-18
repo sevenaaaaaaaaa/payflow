@@ -23,27 +23,17 @@ final class RedemptionRepository extends Repository
 
     public function forOrder(string $orderId): ?array
     {
-        foreach ($this->all() as $redemption) {
-            if (($redemption['order_id'] ?? '') === $orderId) {
-                return $redemption;
-            }
-        }
-
-        return null;
+        return $this->firstBy('order_id', $orderId);
     }
 
     public function countForCustomer(string $couponId, string $email): int
     {
-        $email = strtolower($email);
-        $count = 0;
-        foreach ($this->all() as $redemption) {
-            if (($redemption['coupon_id'] ?? '') === $couponId
-                && strtolower((string) ($redemption['email'] ?? '')) === $email
-                && ($redemption['status'] ?? '') !== 'released') {
-                $count++;
-            }
-        }
+        $rows = $this->aggregate([
+            ['field' => 'coupon_id', 'op' => '=', 'value' => $couponId],
+            ['field' => 'email', 'op' => '=', 'value' => strtolower($email)],
+            ['field' => 'status', 'op' => '!=', 'value' => 'released'],
+        ]);
 
-        return $count;
+        return (int) ($rows[0]['count'] ?? 0);
     }
 }

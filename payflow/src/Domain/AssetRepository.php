@@ -26,8 +26,6 @@ final class AssetRepository extends Repository
      */
     public function forProduct(string $productId): array
     {
-        $list = array_values(array_filter($this->all(), static fn (array $a): bool => ($a['product_id'] ?? '') === $productId));
-
-        return $list;
+        return $this->query(['product_id' => $productId]);
     }
 }

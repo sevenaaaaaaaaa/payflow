@@ -69,13 +69,9 @@ final class SubscriptionRepository extends Repository
 
     public function findByCustomerAndProduct(string $customerId, string $productId): ?array
     {
-        foreach ($this->all() as $sub) {
-            if (($sub['customer_id'] ?? '') === $customerId && ($sub['product_id'] ?? '') === $productId) {
-                return $sub;
-            }
-        }
+        $rows = $this->query(['customer_id' => $customerId, 'product_id' => $productId], 1);
 
-        return null;
+        return $rows[0] ?? null;
     }
 
     /**
@@ -160,15 +156,13 @@ final class SubscriptionRepository extends Repository
     public function stats(): array
     {
         $out = ['active' => 0, 'past_due' => 0, 'canceled' => 0, 'mrr_cents' => 0];
-        foreach ($this->all() as $sub) {
-            $status = (string) ($sub['status'] ?? '');
-            if (isset($out[$status])) {
-                $out[$status]++;
+        foreach ($this->aggregate([], 'status') as $row) {
+            if (array_key_exists((string) $row['key'], $out)) {
+                $out[(string) $row['key']] = $row['count'];
             }
-            if ($status === 'active') {
-                $amount = (int) ($sub['amount_cents'] ?? 0);
-                $out['mrr_cents'] += ($sub['interval'] ?? 'month') === 'year' ? (int) round($amount / 12) : $amount;
-            }
+        }
+        foreach ($this->aggregate([['field' => 'status', 'op' => '=', 'value' => 'active']], 'interval', 'amount_cents') as $row) {
+            $out['mrr_cents'] += ((string) $row['key'] === 'year') ? (int) round($row['sum'] / 12) : $row['sum'];
         }
 
         return $out;

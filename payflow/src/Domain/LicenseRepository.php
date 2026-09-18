@@ -23,13 +23,7 @@ final class LicenseRepository extends Repository
 
     public function forOrder(string $orderId): ?array
     {
-        foreach ($this->all() as $license) {
-            if (($license['order_id'] ?? '') === $orderId) {
-                return $license;
-            }
-        }
-
-        return null;
+        return $this->firstBy('order_id', $orderId);
     }
 
     public function findByKey(string $key): ?array
@@ -42,9 +36,6 @@ final class LicenseRepository extends Repository
      */
     public function recent(int $limit = 200): array
     {
-        $list = array_values($this->all());
-        usort($list, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
-
-        return array_slice($list, 0, $limit);
+        return $this->query([], $limit, 0, 'created_at', 'desc');
     }
 }

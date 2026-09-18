@@ -23,13 +23,9 @@ final class DownloadRepository extends Repository
 
     public function forAssetOrder(string $assetId, string $orderId): ?array
     {
-        foreach ($this->all() as $row) {
-            if (($row['asset_id'] ?? '') === $assetId && ($row['order_id'] ?? '') === $orderId) {
-                return $row;
-            }
-        }
+        $rows = $this->query(['asset_id' => $assetId, 'order_id' => $orderId], 1);
 
-        return null;
+        return $rows[0] ?? null;
     }
 
     public function record(string $assetId, string $orderId, string $email = ''): array

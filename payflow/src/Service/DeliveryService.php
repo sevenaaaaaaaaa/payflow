@@ -236,6 +236,6 @@ final class DeliveryService
             return [];
         }
 
-        return array_values(array_filter($this->cards->all(), static fn (array $c): bool => ($c['order_id'] ?? '') === ($order['id'] ?? '')));
+        return $this->cards->query(['order_id' => (string) ($order['id'] ?? '')]);
     }
 }

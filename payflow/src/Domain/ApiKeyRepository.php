@@ -23,13 +23,7 @@ final class ApiKeyRepository extends Repository
 
     public function findByKeyId(string $keyId): ?array
     {
-        foreach ($this->all() as $key) {
-            if (hash_equals((string) ($key['key_id'] ?? ''), $keyId)) {
-                return $key;
-            }
-        }
-
-        return null;
+        return $this->firstBy('key_id', $keyId);
     }
 
     public function touch(string $id): void
@@ -48,9 +42,6 @@ final class ApiKeyRepository extends Repository
      */
     public function recent(): array
     {
-        $list = array_values($this->all());
-        usort($list, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
-
-        return $list;
+        return $this->query([], 0, 0, 'created_at', 'desc');
     }
 }

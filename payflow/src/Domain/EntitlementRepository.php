@@ -27,13 +27,7 @@ final class EntitlementRepository extends Repository
 
     public function forOrder(string $orderId): ?array
     {
-        foreach ($this->all() as $entitlement) {
-            if (($entitlement['order_id'] ?? '') === $orderId) {
-                return $entitlement;
-            }
-        }
-
-        return null;
+        return $this->firstBy('order_id', $orderId);
     }
 
     /**
@@ -41,10 +35,7 @@ final class EntitlementRepository extends Repository
      */
     public function forSubscription(string $subscriptionId): array
     {
-        return array_values(array_filter(
-            $this->all(),
-            static fn (array $e): bool => ($e['subscription_id'] ?? '') === $subscriptionId,
-        ));
+        return $this->query(['subscription_id' => $subscriptionId]);
     }
 
 
@@ -54,7 +45,11 @@ final class EntitlementRepository extends Repository
     public function allows(string $email, string $url, string $customerId = ''): bool
     {
         $email = strtolower($email);
-        foreach ($this->all() as $entitlement) {
+        $rows = $this->query(['email' => $email]);
+        if ($customerId !== '') {
+            $rows = array_merge($rows, $this->query(['customer_id' => $customerId]));
+        }
+        foreach ($rows as $entitlement) {
             if (($entitlement['status'] ?? 'active') !== 'active') {
                 continue;
             }

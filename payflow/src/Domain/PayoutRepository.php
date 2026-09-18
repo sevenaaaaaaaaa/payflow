@@ -26,7 +26,7 @@ final class PayoutRepository extends Repository
      */
     public function forReferral(string $referralId): array
     {
-        return array_values(array_filter($this->all(), static fn (array $p): bool => ($p['referral_id'] ?? '') === $referralId));
+        return $this->query(['referral_id' => $referralId]);
     }
 
     /**
@@ -34,14 +34,12 @@ final class PayoutRepository extends Repository
      */
     public function reservedCents(string $referralId): int
     {
-        $sum = 0;
-        foreach ($this->all() as $payout) {
-            if (($payout['referral_id'] ?? '') === $referralId && in_array($payout['status'] ?? '', ['requested', 'approved'], true)) {
-                $sum += (int) ($payout['amount_cents'] ?? 0);
-            }
-        }
+        $rows = $this->aggregate([
+            ['field' => 'referral_id', 'op' => '=', 'value' => $referralId],
+            ['field' => 'status', 'op' => 'in', 'value' => ['requested', 'approved']],
+        ], null, 'amount_cents');
 
-        return $sum;
+        return (int) ($rows[0]['sum'] ?? 0);
     }
 
     /**
@@ -49,9 +47,6 @@ final class PayoutRepository extends Repository
      */
     public function recent(int $limit = 200): array
     {
-        $list = array_values($this->all());
-        usort($list, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
-
-        return array_slice($list, 0, $limit);
+        return $this->query([], $limit, 0, 'created_at', 'desc');
     }
 }

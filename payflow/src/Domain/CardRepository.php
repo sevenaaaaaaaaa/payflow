@@ -26,7 +26,7 @@ final class CardRepository extends Repository
      */
     public function forProduct(string $productId): array
     {
-        return array_values(array_filter($this->all(), static fn (array $c): bool => ($c['product_id'] ?? '') === $productId));
+        return $this->query(['product_id' => $productId]);
     }
 
     /**
@@ -34,30 +34,16 @@ final class CardRepository extends Repository
      */
     public function available(string $productId, int $limit = 100): array
     {
-        $out = [];
-        foreach ($this->all() as $card) {
-            if (($card['product_id'] ?? '') === $productId && ($card['status'] ?? '') === 'available') {
-                $out[] = $card;
-                if (count($out) >= $limit) {
-                    break;
-                }
-            }
-        }
-
-        return $out;
+        return $this->query(['product_id' => $productId, 'status' => 'available'], max(1, $limit));
     }
 
     public function stats(string $productId): array
     {
         $out = ['available' => 0, 'issued' => 0, 'disabled' => 0, 'total' => 0];
-        foreach ($this->all() as $card) {
-            if (($card['product_id'] ?? '') !== $productId) {
-                continue;
-            }
-            $out['total']++;
-            $status = (string) ($card['status'] ?? 'available');
-            if (isset($out[$status])) {
-                $out[$status]++;
+        foreach ($this->aggregate([['field' => 'product_id', 'op' => '=', 'value' => $productId]], 'status') as $row) {
+            $out['total'] += $row['count'];
+            if (isset($out[(string) $row['key']])) {
+                $out[(string) $row['key']] = $row['count'];
             }
         }
 

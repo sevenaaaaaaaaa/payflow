@@ -54,11 +54,6 @@ return [
         'session_key' => 'pf_admin',
     ],
 
-    'catalog' => [
-        'currency' => 'CNY',
-        'default_currency_symbol' => '¥',
-    ],
-
     // 支付通道。enabled=false 的通道不会出现在收银台。
     'channels' => [
         'manual' => [
@@ -102,22 +97,12 @@ return [
     ],
 
     // 临时支付链接
-    'payment_link' => [
-        'default_expiry_days' => 7,
-        'max_uses' => 0,   // 0 = 不限
-    ],
-
     // 订阅计费
     'subscription' => [
         'retry_offsets_days' => [1, 3, 5],  // 扣款失败重试节奏（第 n 天后重试）
         'grace_days' => 3,                   // 宽限期：到期后保留权益的天数，之后降级
         'remind_before_days' => 3,           // 到期前提醒天数
         'auto_renew' => true,                // 是否有自动续费引擎（cron）
-    ],
-
-    // 优惠券
-    'coupon' => [
-        'max_per_order' => 1,
     ],
 
     // 推荐裂变 & 佣金
@@ -143,7 +128,6 @@ return [
     'storage' => [
         'uploads_dir' => PAYFLOW_ROOT . '/uploads',
         'download_ttl' => 3600,              // 签名下载链接有效期（秒）
-        'default_download_limit' => 0,       // 0 = 不限次
     ],
 
     // 开放能力

@@ -105,10 +105,9 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
-        $products = array_values($this->app->products->all());
-        usort($products, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
-
-        return Response::html(View::render('admin/products', ['products' => $products]));
+        return Response::html(View::render('admin/products', [
+            'products' => $this->app->products->query([], 0, 0, 'created_at', 'desc'),
+        ]));
     }
 
     public function productForm(Request $request): Response
@@ -619,8 +618,7 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
-        $customers = array_values($this->app->customers->all());
-        usort($customers, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
+        $customers = $this->app->customers->query([], 0, 0, 'created_at', 'desc');
 
         return Response::html(View::render('admin/customers', ['customers' => $customers]));
     }
@@ -630,8 +628,7 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
-        $subs = array_values($this->app->subscriptions->all());
-        usort($subs, static fn (array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
+        $subs = $this->app->subscriptions->query([], 0, 0, 'created_at', 'desc');
 
         return Response::html(View::render('admin/subscriptions', [
             'subscriptions' => $subs,

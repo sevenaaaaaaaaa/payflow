@@ -76,19 +76,16 @@ final class OrderRepository extends Repository
     public function stats(): array
     {
         $stats = ['total' => 0, 'paid' => 0, 'revenue_cents' => 0, 'refunded_cents' => 0, 'subscriptions' => 0];
-        foreach ($this->all() as $order) {
-            $stats['total']++;
-            if (in_array($order['status'] ?? '', [OrderStateMachine::PAID, OrderStateMachine::DELIVERED], true)) {
-                $stats['paid']++;
-                $stats['revenue_cents'] += (int) ($order['amount_cents'] ?? 0);
-            }
-            if (($order['status'] ?? '') === OrderStateMachine::REFUNDED) {
-                $stats['refunded_cents'] += (int) ($order['amount_cents'] ?? 0);
-            }
-            if (($order['type'] ?? '') === 'subscription') {
-                $stats['subscriptions']++;
+        foreach ($this->aggregate([], 'status') as $row) {
+            $stats['total'] += $row['count'];
+            if (in_array((string) $row['key'], [OrderStateMachine::PAID, OrderStateMachine::DELIVERED], true)) {
+                $stats['paid'] += $row['count'];
             }
         }
+        $paidLike = [['field' => 'status', 'op' => 'in', 'value' => [OrderStateMachine::PAID, OrderStateMachine::DELIVERED]]];
+        $stats['revenue_cents'] = (int) ($this->aggregate($paidLike, null, 'amount_cents')[0]['sum'] ?? 0);
+        $stats['refunded_cents'] = (int) ($this->aggregate([['field' => 'status', 'op' => '=', 'value' => OrderStateMachine::REFUNDED]], null, 'amount_cents')[0]['sum'] ?? 0);
+        $stats['subscriptions'] = (int) ($this->aggregate([['field' => 'type', 'op' => '=', 'value' => 'subscription']])[0]['count'] ?? 0);
 
         return $stats;
     }
