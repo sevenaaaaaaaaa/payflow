@@ -13,7 +13,7 @@ $pages = max(1, (int) ceil($total / max(1, $perPage)));
   </div>
   <div class="page-actions">
     <form method="get" action="<?= pf_url('/admin/orders') ?>" class="filters">
-      <input class="pf-input" name="q" value="<?= pf_e((string) $q) ?>" placeholder="订单号/邮箱/商品/状态" style="width:240px">
+      <input class="pf-input" name="q" value="<?= pf_e((string) $q) ?>" placeholder="订单号/邮箱/商品/状态/主体" style="width:260px">
       <button class="pf-btn ghost" type="submit">搜索</button>
     </form>
     <a class="pf-btn ghost" href="<?= pf_url('/admin/orders/export' . ($q !== '' ? '?q=' . rawurlencode($q) : '')) ?>">导出 CSV</a>
@@ -32,7 +32,11 @@ $pages = max(1, (int) ceil($total / max(1, $perPage)));
             <?php if (!empty($order['referral_code'])): ?><div class="pf-faint">ref: <?= pf_e((string) $order['referral_code']) ?></div><?php endif; ?>
             <?php if (!empty($order['test'])): ?><span class="pf-pill warn">测试</span><?php endif; ?>
           </td>
-          <td><?= pf_e((string) ($order['email'] ?? '')) ?></td>
+          <td><?= pf_e((string) ($order['email'] ?? '')) ?>
+            <?php if (!empty($order['external_id']) || !empty($order['tenant'])): ?>
+              <div class="pf-faint mono"><?= pf_e(trim((string) ($order['external_id'] ?? '') . ($order['tenant'] ?? '' ? ' · ' . $order['tenant'] : ''))) ?></div>
+            <?php endif; ?>
+          </td>
           <td><?= pf_e((string) ($order['product_name'] ?? '')) ?></td>
           <td class="num"><?= pf_e(Money::yuan((int) $order['amount_cents'])) ?></td>
           <td class="pf-faint"><?= (int) ($order['discount_cents'] ?? 0) > 0 ? pf_e('- ' . Money::yuan((int) $order['discount_cents']) . ' (' . (string) $order['coupon_code'] . ')') : '—' ?></td>

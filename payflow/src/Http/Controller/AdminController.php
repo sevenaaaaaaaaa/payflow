@@ -607,7 +607,7 @@ final class AdminController
             return $denied;
         }
         [$orders] = $this->filteredOrders($request, 10000, 1);
-        $lines = ["order_no,email,product,type,status,subtotal,discount,amount,channel,coupon,referral,created_at,paid_at"];
+        $lines = ["order_no,email,product,type,status,subtotal,discount,amount,channel,coupon,referral,external_id,tenant,created_at,paid_at"];
         foreach ($orders as $o) {
             $lines[] = implode(',', array_map(static function ($v): string {
                 return '"' . str_replace('"', '""', (string) $v) . '"';
@@ -617,6 +617,7 @@ final class AdminController
                 number_format(((int) ($o['discount_cents'] ?? 0)) / 100, 2, '.', ''),
                 number_format(((int) $o['amount_cents']) / 100, 2, '.', ''),
                 $o['channel'] ?? '', $o['coupon_code'] ?? '', $o['referral_code'] ?? '',
+                $o['external_id'] ?? '', $o['tenant'] ?? '',
                 $o['created_at'] ?? '', $o['paid_at'] ?? '',
             ]));
         }
@@ -640,7 +641,7 @@ final class AdminController
 
             return [$slice, $total, $page, $perPage, ''];
         }
-        $fields = ['order_no', 'email', 'product_name', 'status', 'coupon_code', 'referral_code'];
+        $fields = ['order_no', 'email', 'product_name', 'status', 'coupon_code', 'referral_code', 'external_id', 'tenant'];
         $total = $this->app->orders->searchCount($fields, $q);
         $page = max(1, $forcePage ?? $request->int('page', 1));
         $perPage = max(1, $perPage);
@@ -701,10 +702,20 @@ final class AdminController
         if ($denied = $this->guard($request)) {
             return $denied;
         }
-        [$customers, $total, $page, $perPage] = $this->paginate($this->app->customers, $request);
+        $q = strtolower($request->string('q'));
+        $perPage = 50;
+        $page = max(1, $request->int('page', 1));
+        $fields = ['email', 'name', 'external_id', 'tenant'];
+        if ($q === '') {
+            $total = $this->app->customers->countWhere([]);
+            $customers = $this->app->customers->query([], $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
+        } else {
+            $total = $this->app->customers->searchCount($fields, $q);
+            $customers = $this->app->customers->search($fields, $q, $perPage, ($page - 1) * $perPage, 'created_at', 'desc');
+        }
 
         return Response::html(View::render('admin/customers', [
-            'customers' => $customers, 'total' => $total, 'page' => $page, 'perPage' => $perPage,
+            'customers' => $customers, 'total' => $total, 'page' => $page, 'perPage' => $perPage, 'q' => $q,
         ]));
     }
 
@@ -752,6 +763,7 @@ final class AdminController
             'commissions_matured' => $this->app->commissionService->mature(),
             'webhooks_retried' => $this->app->webhooks->retryDue(),
             'rate_limits_pruned' => $this->app->rateLimiter->prune(),
+            'api_metrics_pruned' => $this->app->apiMetrics->pruneOlderThan(14),
             'login_attempts_pruned' => $this->app->loginThrottle->prune(7),
             'events_pruned' => $this->app->events->prune(
                 (int) \PayFlow\Support\Arr::get($this->app->config, 'maintenance.events_retention_days', 180),

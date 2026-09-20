@@ -66,6 +66,6 @@ php payflow/bin/audit.php --md=docs/AUDIT.md
 
 ## 五、当前状态
 
-- `bin/audit.php` 已落地，本地/生产可跑，exit 0
-- 自检 102 项；CI（PHP 8.3/8.4）连续通过
-- 下一步：`bin/propose.php`（AI 提议）+ BACKLOG 汇总 + L2 受控执行
+- `bin/audit.php` / `bin/propose.php` 已落地；L0 观测 + L1 提议可用
+- 自检以 `php payflow/tests/run.php` 为准；CI（PHP 8.3/8.4）
+- 下一步：L2 受控自动执行（人工批准后，仅低风险项）

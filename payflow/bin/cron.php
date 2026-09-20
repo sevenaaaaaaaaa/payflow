@@ -25,6 +25,7 @@ $report = [
     'commissions_matured' => $app->commissionService->mature(),
     'webhooks_retried' => $app->webhooks->retryDue(),
     'rate_limits_pruned' => $app->rateLimiter->prune(),
+    'api_metrics_pruned' => $app->apiMetrics->pruneOlderThan(14),
     'login_attempts_pruned' => $app->loginThrottle->prune(7),
     'events_pruned' => $app->events->prune(
         (int) \PayFlow\Support\Arr::get($config, 'maintenance.events_retention_days', 180),

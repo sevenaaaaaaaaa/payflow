@@ -7,6 +7,7 @@ namespace PayFlow\Http\Controller;
 use PayFlow\Application;
 use PayFlow\Http\Request;
 use PayFlow\Http\Response;
+use PayFlow\Support\Subject;
 use RuntimeException;
 
 /**
@@ -19,12 +20,14 @@ final class ApiController
     }
 
     private ?array $currentKey = null;
+    /** @var array{allowed:bool,remaining:int,reset:int,limit:int,daily_remaining:int,daily_reset:int,daily_limit:int}|null */
+    private ?array $lastRate = null;
 
     private function authorize(Request $request): ?Response
     {
         $result = $this->app->apiAuth->authenticate($request);
         if (isset($result['error'])) {
-            return Response::json(['ok' => false, 'error' => $result['error']], 401);
+            return $this->json(['ok' => false, 'error' => $result['error']], 401);
         }
         $this->currentKey = $result['key'] ?? null;
 
@@ -34,20 +37,39 @@ final class ApiController
         }
 
         $rl = $this->app->rateLimiter->check((string) ($this->currentKey['id'] ?? ''));
+        $this->lastRate = $rl;
         if (!($rl['allowed'] ?? true)) {
-            return new Response(
-                (string) json_encode(['ok' => false, 'error' => '请求过于频繁（限流）'], JSON_UNESCAPED_UNICODE),
-                429,
-                [
-                    'Content-Type' => 'application/json; charset=utf-8',
-                    'Retry-After' => (string) max(1, (int) $rl['reset'] - time()),
-                    'X-RateLimit-Limit' => (string) $rl['limit'],
-                    'X-RateLimit-Remaining' => '0',
-                ],
-            );
+            return $this->json(['ok' => false, 'error' => '请求过于频繁（限流）'], 429);
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function json(array $payload, int $status = 200): Response
+    {
+        $this->app->apiMetrics->bump((string) ($this->currentKey['id'] ?? ''), $status);
+        $headers = ['Content-Type' => 'application/json; charset=utf-8'];
+        if ($this->lastRate !== null) {
+            $headers['X-RateLimit-Limit'] = (string) $this->lastRate['limit'];
+            $headers['X-RateLimit-Remaining'] = (string) $this->lastRate['remaining'];
+            $headers['X-RateLimit-Limit-Day'] = (string) $this->lastRate['daily_limit'];
+            $headers['X-RateLimit-Remaining-Day'] = (string) $this->lastRate['daily_remaining'];
+        }
+        if ($status === 429 && $this->lastRate !== null) {
+            $retry = ($this->lastRate['remaining'] ?? 1) === 0
+                ? (int) $this->lastRate['reset']
+                : (int) $this->lastRate['daily_reset'];
+            $headers['Retry-After'] = (string) max(1, $retry - time());
+        }
+
+        return new Response(
+            (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            $status,
+            $headers,
+        );
     }
 
     private function deprecationHeaders(Request $request): void
@@ -81,7 +103,7 @@ final class ApiController
             return $denied;
         }
 
-        return Response::json([
+        return $this->json([
             'ok' => true,
             'product' => 'PayFlow',
             'version' => (string) \PayFlow\Support\Arr::get($this->app->config, 'app.version', '1.0.0'),
@@ -100,7 +122,7 @@ final class ApiController
         }
         $base = rtrim($this->app->baseUrl(), '/');
 
-        return Response::json([
+        return $this->json([
             'ok' => true,
             'product' => 'PayFlow',
             'version' => (string) \PayFlow\Support\Arr::get($this->app->config, 'app.version', '1.0.0'),
@@ -110,6 +132,7 @@ final class ApiController
             'rate_limit' => [
                 'enabled' => (bool) \PayFlow\Support\Arr::get($this->app->config, 'api.rate_limit.enabled', true),
                 'per_minute' => (int) \PayFlow\Support\Arr::get($this->app->config, 'api.rate_limit.per_minute', 120),
+                'per_day' => (int) \PayFlow\Support\Arr::get($this->app->config, 'api.rate_limit.per_day', 10000),
             ],
             'auth' => [
                 'bearer' => 'Authorization: Bearer <key_id>.<secret>',
@@ -149,6 +172,13 @@ final class ApiController
                 'retry' => 'backoff 30s/1m/2m/4m…，最多 5 次；后台可手动重发',
             ],
             'payment_status_flow' => ['created', 'paid', 'delivered', 'refunded'],
+            'inbound_events' => [
+                'entitlement.revoke',
+                'customer.update',
+                'customer.upsert',
+                'learnflow.enrollment.cancelled',
+            ],
+            'subject' => ['email', 'external_id', 'tenant'],
         ]);
     }
 
@@ -170,7 +200,7 @@ final class ApiController
             ];
         }
 
-        return Response::json(['ok' => true, 'products' => $out]);
+        return $this->json(['ok' => true, 'products' => $out]);
     }
 
     public function checkout(Request $request): Response
@@ -179,10 +209,11 @@ final class ApiController
             return $denied;
         }
         $payload = $request->payload();
+        $subject = Subject::from($payload, $request->query);
         $product = $this->app->products->find((string) ($payload['product'] ?? ''))
             ?? $this->app->products->findBySlug((string) ($payload['product'] ?? ''));
         if ($product === null) {
-            return Response::json(['ok' => false, 'error' => '商品不存在'], 404);
+            return $this->json(['ok' => false, 'error' => '商品不存在'], 404);
         }
         $mode = (string) ($this->currentKey['mode'] ?? 'live');
         $channel = (string) ($payload['channel'] ?? '');
@@ -195,23 +226,23 @@ final class ApiController
         try {
             $result = $this->app->orderService->startCheckout(
                 (string) $product['id'],
-                (string) ($payload['email'] ?? ''),
+                $subject['email'] !== '' ? $subject['email'] : (string) ($payload['email'] ?? ''),
                 (string) ($payload['name'] ?? ''),
                 $channel,
                 [
                     'coupon' => (string) ($payload['coupon'] ?? ''),
                     'referral' => (string) ($payload['referral'] ?? ''),
-                    'external_id' => (string) ($payload['external_id'] ?? ''),
-                    'tenant' => (string) ($payload['tenant'] ?? ''),
+                    'external_id' => $subject['external_id'],
+                    'tenant' => $subject['tenant'],
                     'test' => ($this->currentKey['mode'] ?? 'live') === 'test',
                 ],
             );
         } catch (RuntimeException $e) {
-            return Response::json(['ok' => false, 'error' => $e->getMessage()], 422);
+            return $this->json(['ok' => false, 'error' => $e->getMessage()], 422);
         }
         $order = $result['order'];
 
-        return Response::json([
+        return $this->json([
             'ok' => true,
             'order' => $this->app->orderService->publicOrder($order),
             'pay_url' => $this->app->baseUrl('pay/' . $order['token']),
@@ -226,10 +257,10 @@ final class ApiController
         }
         $order = $this->app->orders->findByOrderNo((string) $request->param('orderNo', ''));
         if ($order === null) {
-            return Response::json(['ok' => false, 'error' => '订单不存在'], 404);
+            return $this->json(['ok' => false, 'error' => '订单不存在'], 404);
         }
 
-        return Response::json(['ok' => true, 'order' => $this->app->orderService->publicOrder($order)]);
+        return $this->json(['ok' => true, 'order' => $this->app->orderService->publicOrder($order)]);
     }
 
     public function couponValidate(Request $request): Response
@@ -240,7 +271,7 @@ final class ApiController
         $payload = $request->payload();
         $product = $this->app->products->find((string) ($payload['product'] ?? ''));
         if ($product === null) {
-            return Response::json(['ok' => false, 'error' => '商品不存在'], 404);
+            return $this->json(['ok' => false, 'error' => '商品不存在'], 404);
         }
         $result = $this->app->couponService->validate(
             (string) ($payload['code'] ?? ''),
@@ -249,7 +280,7 @@ final class ApiController
             (string) ($payload['email'] ?? ''),
         );
 
-        return Response::json([
+        return $this->json([
             'ok' => (bool) ($result['ok'] ?? false),
             'reason' => $result['reason'] ?? null,
             'discount_cents' => (int) ($result['discount_cents'] ?? 0),
@@ -264,14 +295,14 @@ final class ApiController
         $payload = $request->payload();
         $key = trim((string) ($payload['license_key'] ?? $request->query['license_key'] ?? ''));
         if ($key === '') {
-            return Response::json(['ok' => false, 'error' => '缺少 license_key'], 422);
+            return $this->json(['ok' => false, 'error' => '缺少 license_key'], 422);
         }
         $license = $this->app->licenses->findByKey($key);
         if ($license === null) {
-            return Response::json(['ok' => true, 'valid' => false]);
+            return $this->json(['ok' => true, 'valid' => false]);
         }
 
-        return Response::json(['ok' => true, 'valid' => ($license['status'] ?? '') === 'active', 'license' => [
+        return $this->json(['ok' => true, 'valid' => ($license['status'] ?? '') === 'active', 'license' => [
             'status' => $license['status'] ?? null,
             'product_id' => $license['product_id'] ?? null,
             'order_no' => $license['order_no'] ?? null,
@@ -307,7 +338,7 @@ final class ApiController
             $cursor = (string) ($row['created_at'] ?? $cursor);
         }
 
-        return Response::json(['ok' => true, 'events' => $events, 'cursor' => $cursor]);
+        return $this->json(['ok' => true, 'events' => $events, 'cursor' => $cursor]);
     }
 
     /**
@@ -320,11 +351,11 @@ final class ApiController
         }
         $payload = $request->payload();
         if (!is_array($payload) || ($payload['type'] ?? '') === '') {
-            return Response::json(['ok' => false, 'error' => '缺少事件 type'], 422);
+            return $this->json(['ok' => false, 'error' => '缺少事件 type'], 422);
         }
         $result = $this->app->inboundEventService->handle($payload);
 
-        return Response::json($result);
+        return $this->json($result);
     }
 
     public function analytics(Request $request): Response
@@ -333,6 +364,6 @@ final class ApiController
             return $denied;
         }
 
-        return Response::json(['ok' => true, 'summary' => $this->app->analyticsService->summary($request->int('days', 30))]);
+        return $this->json(['ok' => true, 'summary' => $this->app->analyticsService->summary($request->int('days', 30))]);
     }
 }

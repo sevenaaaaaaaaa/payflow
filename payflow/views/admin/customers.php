@@ -9,12 +9,18 @@ $pages = max(1, (int) ceil($total / max(1, $perPage)));
     <h1>客户与权益</h1>
     <p class="sub">共 <?= (int) $total ?> 位 · 购买即会员，权益挂内容 URL 白名单。</p>
   </div>
+  <div class="page-actions">
+    <form method="get" action="<?= pf_url('/admin/customers') ?>" class="filters">
+      <input class="pf-input" name="q" value="<?= pf_e((string) ($q ?? '')) ?>" placeholder="邮箱/称呼/external_id/tenant" style="width:260px">
+      <button class="pf-btn ghost" type="submit">搜索</button>
+    </form>
+  </div>
 </section>
 
 <div class="pf-card">
   <div class="table-wrap">
     <table class="pf-table">
-      <thead><tr><th>邮箱</th><th>称呼</th><th>会员等级</th><th>会员到期</th><th>external_id</th><th>创建时间</th></tr></thead>
+      <thead><tr><th>邮箱</th><th>称呼</th><th>会员等级</th><th>会员到期</th><th>external_id</th><th>tenant</th><th>创建时间</th></tr></thead>
       <tbody>
       <?php foreach ($customers as $c): ?>
         <tr>
@@ -23,15 +29,16 @@ $pages = max(1, (int) ceil($total / max(1, $perPage)));
           <td><?php if (!empty($c['membership_level'])): ?><span class="pf-pill accent"><?= pf_e((string) $c['membership_level']) ?></span><?php else: ?><span class="pf-faint">—</span><?php endif; ?></td>
           <td class="pf-faint nowrap"><?= pf_e((string) ($c['membership_expires_at'] ?? '—')) ?></td>
           <td class="mono pf-faint"><?= pf_e((string) ($c['external_id'] ?? '—')) ?></td>
+          <td class="mono pf-faint"><?= pf_e((string) ($c['tenant'] ?? '—')) ?></td>
           <td class="pf-faint nowrap"><?= pf_e(date('Y-m-d H:i', strtotime((string) $c['created_at']))) ?></td>
         </tr>
       <?php endforeach; ?>
-      <?php if ($customers === []): ?><tr><td colspan="6" class="empty">暂无客户</td></tr><?php endif; ?>
+      <?php if ($customers === []): ?><tr><td colspan="7" class="empty">暂无客户</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>
 </div>
 
-<?= pf_pager($page, $pages, '/admin/customers') ?>
+<?= pf_pager($page, $pages, '/admin/customers', !empty($q) ? ['q' => $q] : []) ?>
 
 <?php require __DIR__ . '/../partials/admin-foot.php'; ?>

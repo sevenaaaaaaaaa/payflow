@@ -7,6 +7,7 @@ namespace PayFlow\Http\Controller;
 use PayFlow\Application;
 use PayFlow\Http\Request;
 use PayFlow\Http\Response;
+use PayFlow\Support\Subject;
 use PayFlow\Support\View;
 use RuntimeException;
 
@@ -26,12 +27,17 @@ final class CheckoutController
             return Response::html(View::render('error', ['code' => 404, 'message' => '商品不存在或已下架']), 404);
         }
 
+        $subject = Subject::from([], $request->query);
+
         return Response::html(View::render('checkout', [
             'product' => $product,
             'channels' => $this->app->channels->enabled(),
             'currency' => $product['currency'] ?? 'CNY',
             'embed' => ($request->query['embed'] ?? '') === '1',
             'priceLabel' => $this->app->products->priceLabel($product),
+            'external_id' => $subject['external_id'],
+            'tenant' => $subject['tenant'],
+            'prefill_email' => $subject['email'],
         ]));
     }
 
@@ -41,6 +47,7 @@ final class CheckoutController
     public function create(Request $request): Response
     {
         $payload = $request->payload();
+        $subject = Subject::from($payload, $request->query);
         $product = $this->resolveProduct((string) ($payload['product'] ?? $payload['product_id'] ?? ''));
         if ($product === null) {
             return Response::json(['ok' => false, 'error' => '商品不存在或已下架'], 404);
@@ -55,12 +62,14 @@ final class CheckoutController
         try {
             $result = $this->app->orderService->startCheckout(
                 (string) $product['id'],
-                (string) ($payload['email'] ?? ''),
+                $subject['email'] !== '' ? $subject['email'] : (string) ($payload['email'] ?? ''),
                 (string) ($payload['name'] ?? ''),
                 $channel,
                 [
                     'coupon' => (string) ($payload['coupon'] ?? ''),
                     'referral' => $this->referralCode($request, $payload),
+                    'external_id' => $subject['external_id'],
+                    'tenant' => $subject['tenant'],
                 ],
             );
         } catch (RuntimeException $e) {

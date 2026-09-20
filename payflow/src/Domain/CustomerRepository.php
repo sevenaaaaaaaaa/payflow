@@ -23,6 +23,16 @@ final class CustomerRepository extends Repository
         return $this->firstBy('email', strtolower(trim($email)));
     }
 
+    public function findByExternalId(string $externalId): ?array
+    {
+        $externalId = trim($externalId);
+        if ($externalId === '') {
+            return null;
+        }
+
+        return $this->firstBy('external_id', $externalId);
+    }
+
     /**
      * 幂等 upsert：同邮箱复用客户档案。
      */

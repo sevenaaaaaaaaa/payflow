@@ -6,6 +6,7 @@ namespace PayFlow;
 
 use PayFlow\Domain\CustomerRepository;
 use PayFlow\Domain\ApiKeyRepository;
+use PayFlow\Domain\ApiMetricRepository;
 use PayFlow\Domain\AssetRepository;
 use PayFlow\Domain\CardRepository;
 use PayFlow\Domain\CommissionRepository;
@@ -75,6 +76,7 @@ final class Application
     public readonly OutboxRepository $outbox;
     public readonly InboundEventRepository $inboundEvents;
     public readonly RateLimitRepository $rateLimits;
+    public readonly ApiMetricRepository $apiMetrics;
     public readonly LoginAttemptRepository $loginAttempts;
     public readonly PaymentLinkRepository $paymentLinks;
     public readonly CardRepository $cards;
@@ -126,6 +128,7 @@ final class Application
         $this->outbox = new OutboxRepository($stores);
         $this->inboundEvents = new InboundEventRepository($stores);
         $this->rateLimits = new RateLimitRepository($stores);
+        $this->apiMetrics = new ApiMetricRepository($stores);
         $this->loginAttempts = new LoginAttemptRepository($stores);
         $this->paymentLinks = new PaymentLinkRepository($stores);
         $this->cards = new CardRepository($stores);
@@ -142,7 +145,7 @@ final class Application
         $this->deliveryService = new DeliveryService($config, $this->assets, $this->licenses, $this->downloads, $this->products, $this->events, $baseUrl, $this->cards);
         $this->apiAuth = new ApiAuth($this->apiKeys, $config);
         $this->invoiceService = new InvoiceService($config, $this->invoices, $this->events, $baseUrl);
-        $this->analyticsService = new AnalyticsService($this->orders, $this->subscriptions, $this->commissions, $this->customers);
+        $this->analyticsService = new AnalyticsService($this->orders, $this->subscriptions, $this->commissions, $this->customers, $this->apiMetrics);
         $this->inboundEventService = new InboundEventService($this->inboundEvents, $this->orders, $this->customers, $this->entitlements, $this->events);
         $this->rateLimiter = new RateLimiter($this->rateLimits, $config);
         $this->loginThrottle = new LoginThrottle($this->loginAttempts, $config);

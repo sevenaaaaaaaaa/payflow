@@ -32,7 +32,7 @@ Authorization: Bearer <key_id>.<secret>
 
 ## 限流与沙箱
 
-- 限流：每 Key 每分钟请求上限（默认 120，`config.api.rate_limit`）。超限返回 **429** + `Retry-After` + `X-RateLimit-*`。
+- 限流：每 Key 每分钟（默认 120）+ 每日（默认 10000，`config.api.rate_limit`）。超限返回 **429** + `Retry-After` + `X-RateLimit-Limit/Remaining` + `X-RateLimit-Limit-Day/Remaining-Day`。
 - 沙箱：后台新建「沙箱」密钥；用沙箱 Key 下单会**强制人工通道**、订单标记 `test=true`、
   事件信封 `mode=test` 且带 `X-PayFlow-Mode: test`。看板统计**排除**沙箱订单。
 
@@ -41,13 +41,13 @@ Authorization: Bearer <key_id>.<secret>
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/v1/products` | 在售商品列表 |
-| POST | `/api/v1/checkout` | 创建订单并返回支付链接（body: product, email, name, channel?, coupon?, referral?） |
+| POST | `/api/v1/checkout` | 创建订单（body: product, email, name, channel?, coupon?, referral?, external_id?, tenant?, 或嵌套 `subject`） |
 | GET | `/api/v1/orders/{orderNo}` | 查询订单 |
 | GET/POST | `/api/v1/coupons/validate` | 优惠券试算（product, code, email?） |
 | GET | `/api/v1/analytics/summary?days=30` | 经营汇总（GMV/漏斗/订阅/佣金/渠道） |
 | GET | `/api/v1/version` | 版本与弃用面 |
 | GET | `/api/v1/events?since=&limit=` | 增量拉取出站事件（Outbox；游标为上一批最后 `occurred_at`） |
-| POST | `/api/v1/events` | 入站事件（`idempotency_key` 去重；支持 `entitlement.revoke` / `customer.update`） |
+| POST | `/api/v1/events` | 入站事件（`idempotency_key` 去重；见 `docs/EVENTS.md`） |
 | GET/POST | `/api/v1/licenses/validate` | 校验 License 密钥（body/query: license_key） |
 
 返回统一 JSON：成功 `{"ok":true,...}`，失败 `{"ok":false,"error":"..."}`（HTTP 401/404/422）。

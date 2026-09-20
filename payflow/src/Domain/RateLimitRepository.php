@@ -22,13 +22,16 @@ final class RateLimitRepository extends Repository
     }
 
     /**
-     * 清理早于 $before 的桶（cron）。
+     * 清理过期的分钟桶与日桶（cron）。
      */
-    public function pruneBefore(string $before): int
+    public function pruneStale(string $minuteBefore, string $dayBefore): int
     {
         $n = 0;
         foreach ($this->all() as $id => $row) {
-            if ((string) ($row['bucket'] ?? '') < $before) {
+            $kind = (string) ($row['kind'] ?? 'minute');
+            $bucket = (string) ($row['bucket'] ?? '');
+            $stale = $kind === 'day' ? $bucket < $dayBefore : $bucket < $minuteBefore;
+            if ($stale) {
                 $this->delete((string) $id);
                 $n++;
             }
@@ -36,4 +39,5 @@ final class RateLimitRepository extends Repository
 
         return $n;
     }
+
 }

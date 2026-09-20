@@ -82,7 +82,7 @@ php payflow/bin/cron.php   # 订阅续费/提醒 + 佣金解冻 + Webhook 重试
 php payflow/bin/seed.php --dev          # 写入 dev 配置 + 演示商品
 php -S 127.0.0.1:8787 -t payflow payflow/index.php
 # 后台 http://127.0.0.1:8787/ （= /admin，令牌 payflow-dev） · 演示店铺 /store
-php payflow/tests/run.php               # 自检（19 项）
+php payflow/tests/run.php               # 自检
 ```
 
 ## 代码结构

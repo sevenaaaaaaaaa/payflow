@@ -5,9 +5,7 @@
 
 ## 当前信封
 
-```json
-{ "event": "order.paid", "data": { ... }, "sent_at": "2026-09-18T12:00:00+08:00" }
-```
+出站同时带统一信封与旧字段（`event` / `sent_at`），消费方任选其一。
 
 ## 已实现（H3.1/H3.2）
 
@@ -70,9 +68,22 @@
 
 ## 入站事件（已实现）
 
-其它产品可推事件给 PayFlow（HMAC + 幂等键）：
-`POST /api/v1/events`
+其它产品可推事件给 PayFlow（HMAC/Bearer + 幂等键）：`POST /api/v1/events`。
+
+| type | 动作 | 识别 |
+|---|---|---|
+| `entitlement.revoke` | 撤销有效权益 | `data.order_no`，或 `subject.email` / `subject.external_id` |
+| `learnflow.enrollment.cancelled` | 同上（别名） | 同上；`learnflow.enrollment.removed` / `learnflow.enroll_remove` 亦可 |
+| `customer.update` | 补 external_id / tenant / tags / name | 先按 email，再按 external_id；客户不存在则 `not_found` |
+| `customer.upsert` | 同上，不存在则建档 | 需要 email |
+
 ```json
-{ "type": "learnflow.enrollment.cancelled", "subject": { "email": "..." }, "data": {...}, "idempotency_key": "..." }
+{
+  "type": "learnflow.enrollment.cancelled",
+  "subject": { "email": "buyer@example.com", "external_id": "lf_u_1", "tenant": "learnflow" },
+  "data": { "order_no": "PF2026..." },
+  "idempotency_key": "learnflow:enroll_remove:PF2026..."
+}
 ```
-用途示例：撤销权益、触发退款线索、给订单打标。
+
+未知 `type` 安全留存为 `noop`，不报错。

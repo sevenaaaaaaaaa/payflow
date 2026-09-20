@@ -12,7 +12,7 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'PayFlow',
-        'version' => '1.0.6',
+        'version' => '1.0.7',
         'env' => 'production',
         'debug' => false,
         // 部署入口：主域名子路径（nownexts.com/payflow）。若改用独立子域，
@@ -142,6 +142,7 @@ return [
         'rate_limit' => [
             'enabled' => true,
             'per_minute' => 120,   // 每 Key 每分钟请求上限
+            'per_day' => 10000,    // 每 Key 每日请求上限
         ],
         // 弃用面：命中 path 前缀的请求会带 Deprecation/Sunset/Link 头
         // 例：['path' => '/api/v1/legacy', 'deprecated_at' => '2026-01-01', 'sunset_at' => '2026-06-01', 'replacement' => '/api/v1/new']

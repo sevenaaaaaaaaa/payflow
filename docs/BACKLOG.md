@@ -3,24 +3,26 @@
 > 「接下来建什么」的唯一来源。优先级：🔴 地基/架构债 · 🟢 攻（差异化） · 🟦 守（必需）。
 > 状态：⬜ 未做 · 🟡 部分 · ✅ 已做。审计结果由 `php payflow/bin/audit.php` 产生。
 
-## 已完成（截至 2026-09-18）
+## 已完成（截至 2026-09-20）
 
 - ✅ H1 全闭环：结账/订阅/交付/会员/退款/通知（manual 通道端到端）
 - ✅ H2：订阅续费引擎、优惠券、推荐裂变+佣金+提现、数字交付+License、数据看板、发票
 - ✅ 收款形态：临时支付链接、兑换券、发卡库存、加密货币通道
 - ✅ 开放能力：API Key（Bearer/HMAC）、`/api/v1/*`、Webhook 出站（重试）、`/api/v1/meta`
+- ✅ 互通：统一事件信封、入站事件（含 LearnFlow 别名）、Outbox 增量拉取、统一主体
+- ✅ 治理：每 Key 分钟/日配额、沙箱、弃用头、CSRF、API 错误率看板
 - ✅ 存储：MySQL 主库 + SQLite 辅助 + JSON 兜底；查询/聚合/搜索全面下推；FULLTEXT(ngram)
-- ✅ 工程：CI（PHP 8.3/8.4）、`bin/audit.php` 自审计、102 项自检、双入口（nownexts.com/payflow 与 payflow.nownexts.com）
+- ✅ 工程：CI（PHP 8.3/8.4）、`bin/audit.php` 自审计、`bin/propose.php`、双入口
 
 ## T0 · 地基（互通与自进化）
 
 | # | 事项 | 类 | 状态 | 说明 |
 |---|---|---|---|---|
 | 1 | 统一事件信封（id/version/subject/idempotency_key） | 🔴 | ✅ | 出站已按信封发送，兼容旧字段 |
-| 2 | 入站事件 `POST /api/v1/events`（HMAC+幂等） | 🔴 | ✅ | 支持 entitlement.revoke / customer.update |
+| 2 | 入站事件 `POST /api/v1/events`（HMAC+幂等） | 🔴 | ✅ | revoke / customer.update / upsert；LearnFlow 别名 |
 | 3 | 增量拉取 `GET /api/v1/events?since=` | 🔴 | ✅ | Outbox + 游标 |
 | 4 | `bin/propose.php`（AI 提议，人工批准） | 🟢 | ✅ | 读审计+指标 → DeepSeek → `docs/PROPOSALS.md` |
-| 5 | 统一主体 `subject{email,external_id,tenant}` | 🔴 | 🟡 | 结账可带 external_id/tenant，客户/订单已落库 |
+| 5 | 统一主体 `subject{email,external_id,tenant}` | 🔴 | ✅ | 结账/嵌入 SDK/入站/后台列表与搜索均已贯通 |
 
 ## T1 · 治理与体验
 
@@ -31,13 +33,19 @@
 | 8 | 版本面 + 弃用头（`X-API-Version`/`Deprecation`/`Sunset`/`Link`） | 🟦 | ✅ |
 | 9 | 审计页服务端分页 | 🟢 | ✅ |
 | 10 | 后台写操作 CSRF token | 🟦 | ✅ |
+| 16 | 日配额 + API 错误率看板 | 🟦 | ✅ |
 
-## T2 · 增长
+## T2 · 增长（需正式商户凭证 / 外部服务，暂缓）
 
-| # | 事项 | 类 | 状态 |
-|---|---|---|---|
-| 11 | 订阅免密代扣协议（支付宝周期扣款/微信委托代扣） | 🟢 | ⬜ |
-| 12 | 支付通道真实凭证联调（支付宝/微信） | 🟢 | ⬜ |
-| 13 | 加密货币链上监听服务 | 🟢 | ⬜ |
+| # | 事项 | 类 | 状态 | 阻塞 |
+|---|---|---|---|---|
+| 11 | 订阅免密代扣协议（支付宝周期扣款/微信委托代扣） | 🟢 | ⬜ | 正式商户协议 |
+| 12 | 支付通道真实凭证联调（支付宝/微信） | 🟢 | ⬜ | 正式商户凭证 |
+| 13 | 加密货币链上监听服务 | 🟢 | ⬜ | 外部监听器或节点 |
 | 14 | 与 LearnFlow 课程售卖联调 | 🟢 | ✅ | 正向开课 + 反向退课撤销均已通 |
 | 15 | 佣金结算报表 / 对账单导出 | 🟢 | ✅ | `/admin/commissions` + CSV |
+
+## 下一步
+
+- L2 受控自动执行（人工批准后，仅低风险项自动实现/发布）
+- 上表 T2 #11–13：有正式凭证或链上服务后再做

@@ -26,6 +26,9 @@ foreach ($series as $row) { $max = max($max, (int) $row['gmv_cents']); }
   <div class="pf-card"><div class="pf-stat"><span class="n"><?= pf_e((string) $summary['conversion_rate']) ?>%</span><span class="l">转化率</span></div></div>
   <div class="pf-card"><div class="pf-stat"><span class="n"><?= pf_e(Money::yuan((int) $summary['refund_cents'])) ?></span><span class="l">退款</span></div></div>
   <div class="pf-card"><div class="pf-stat"><span class="n"><?= pf_e(Money::yuan((int) $summary['discount_cents'])) ?></span><span class="l">优惠让利</span></div></div>
+  <div class="pf-card"><div class="pf-stat"><span class="n"><?= (int) ($summary['api']['requests'] ?? 0) ?></span><span class="l">API 请求</span></div></div>
+  <div class="pf-card"><div class="pf-stat"><span class="n"><?= pf_e((string) ($summary['api']['error_rate'] ?? 0)) ?>%</span><span class="l">API 错误率</span></div></div>
+  <div class="pf-card"><div class="pf-stat"><span class="n"><?= (int) ($summary['api']['errors_4xx'] ?? 0) ?> / <?= (int) ($summary['api']['errors_5xx'] ?? 0) ?></span><span class="l">4xx / 5xx</span></div></div>
 </section>
 
 <div class="pf-grid cols-2" style="align-items:start;margin-bottom:22px">

@@ -414,6 +414,33 @@ $rev2 = $iApp->inboundEventService->handle(['type' => 'entitlement.revoke', 'dat
 check('入站事件幂等去重', ($rev2['duplicate'] ?? false) === true);
 $cust = $iApp->customers->findByEmail('io@test.com');
 check('客户 external_id 落库', ($cust['external_id'] ?? '') === 'ext-1');
+$io2 = $iApp->orderService->startCheckout($iid, 'io2@test.com', 'IO2', 'manual', ['external_id' => 'ext-io2', 'tenant' => 't1']);
+$iApp->orderService->markPaid((string) $io2['order']['id'], 'IO2', 1000, []);
+$alias = $iApp->inboundEventService->handle([
+    'type' => 'learnflow.enrollment.cancelled',
+    'subject' => ['external_id' => 'ext-io2'],
+    'data' => [],
+    'idempotency_key' => 'k-alias',
+]);
+check('入站别名 learnflow.enrollment.cancelled', ($alias['type'] ?? '') === 'entitlement.revoke' && str_starts_with((string) ($alias['applied'] ?? ''), 'revoked'));
+$upd = $iApp->inboundEventService->handle([
+    'type' => 'customer.update',
+    'subject' => ['email' => 'io@test.com', 'external_id' => 'ext-2', 'tenant' => 'learnflow'],
+    'data' => ['tags' => ['vip']],
+    'idempotency_key' => 'k-upd',
+]);
+$cust2 = $iApp->customers->findByEmail('io@test.com');
+check('入站 customer.update 写 subject', ($upd['applied'] ?? '') === 'updated' && ($cust2['external_id'] ?? '') === 'ext-2' && ($cust2['tenant'] ?? '') === 'learnflow');
+$up = $iApp->inboundEventService->handle([
+    'type' => 'customer.upsert',
+    'subject' => ['email' => 'new@test.com', 'external_id' => 'ext-new', 'tenant' => 't2'],
+    'data' => ['name' => '新客'],
+    'idempotency_key' => 'k-up',
+]);
+$cust3 = $iApp->customers->findByExternalId('ext-new');
+check('入站 customer.upsert 可建档', ($up['applied'] ?? '') === 'created' && ($cust3['email'] ?? '') === 'new@test.com');
+$nested = \PayFlow\Support\Subject::from(['subject' => ['email' => 'n@x.com', 'external_id' => 'e', 'tenant' => 't']], []);
+check('Subject 嵌套信封可解析', $nested['email'] === 'n@x.com' && $nested['tenant'] === 't');
 rrmdir($tmpI);
 
 echo "\n[临时支付链接 · 加密 · 发卡 · 兑换券]\n";
@@ -537,12 +564,17 @@ $gApp->apiKeys->insert(['name' => 'gov', 'key_id' => $kid, 'secret_hash' => pass
 $rl = new \PayFlow\Service\RateLimiter($gApp->rateLimits, ['api' => ['rate_limit' => ['enabled' => true, 'per_minute' => 2]]]);
 check('限流前两次允许', $rl->check('k')['allowed'] === true && $rl->check('k')['allowed'] === true);
 check('限流第三次拒绝', $rl->check('k')['allowed'] === false);
+$dayRl = new \PayFlow\Service\RateLimiter($gApp->rateLimits, ['api' => ['rate_limit' => ['enabled' => true, 'per_minute' => 100, 'per_day' => 2]]]);
+check('日配额前两次允许', $dayRl->check('dayk')['allowed'] === true && $dayRl->check('dayk')['allowed'] === true);
+check('日配额第三次拒绝', $dayRl->check('dayk')['allowed'] === false);
 
 $ctrl = new \PayFlow\Http\Controller\ApiController($gApp);
 $vreq = new \PayFlow\Http\Request('GET', '/api/v1/version', [], [], ['Authorization' => 'Bearer ' . $kid . '.' . $sec], '');
 $vresp = $ctrl->version($vreq);
 $vbody = json_decode($vresp->body, true);
 check('版本端点返回 API 版本与模式', ($vbody['api']['current'] ?? '') === 'v1' && ($vbody['mode'] ?? '') === 'test');
+check('API 用量已记入', (int) ($gApp->apiMetrics->summarySince(gmdate('Y-m-d'))['requests'] ?? 0) >= 1);
+check('成功响应带日配额头', ($vresp->headers['X-RateLimit-Limit-Day'] ?? '') !== '');
 
 $creq = new \PayFlow\Http\Request('POST', '/api/v1/checkout', [], ['product' => $gid, 'email' => 'gov@test.com', 'channel' => 'manual'], ['Authorization' => 'Bearer ' . $kid . '.' . $sec], '');
 $cresp = $ctrl->checkout($creq);

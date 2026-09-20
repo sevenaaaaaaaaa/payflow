@@ -143,7 +143,8 @@ $accepted = [
     'Domain/ProductRepository.php' => 'active（小集合）',
     'Domain/SubscriptionRepository.php' => 'dueForRenewal/expiringWithinDays（cron）',
     'Domain/WebhookDeliveryRepository.php' => 'dueForRetry（cron）',
-    'Domain/RateLimitRepository.php' => 'pruneBefore（cron 清理）',
+    'Domain/RateLimitRepository.php' => 'pruneStale（cron 清理）',
+    'Domain/ApiMetricRepository.php' => 'pruneOlderThan（cron 清理）',
     'Domain/LoginAttemptRepository.php' => 'pruneOlderThan（cron 清理）',
 ];
 $hotReal = [];

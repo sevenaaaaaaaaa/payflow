@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PayFlow\Service;
 
+use PayFlow\Domain\ApiMetricRepository;
 use PayFlow\Domain\CommissionRepository;
 use PayFlow\Domain\CustomerRepository;
 use PayFlow\Domain\OrderRepository;
@@ -21,6 +22,7 @@ final class AnalyticsService
         private readonly SubscriptionRepository $subscriptions,
         private readonly CommissionRepository $commissions,
         private readonly CustomerRepository $customers,
+        private readonly ?ApiMetricRepository $apiMetrics = null,
     ) {
     }
 
@@ -85,6 +87,9 @@ final class AnalyticsService
             'subscriptions' => $subStats + ['cancelled' => $subStats['canceled']],
             'new_customers' => $newCustomers,
             'commission' => $commission,
+            'api' => $this->apiMetrics?->summarySince(date('Y-m-d', time() - $days * 86400)) ?? [
+                'requests' => 0, 'errors_4xx' => 0, 'errors_5xx' => 0, 'error_rate' => 0.0,
+            ],
         ];
     }
 

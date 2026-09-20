@@ -33,7 +33,7 @@
 
 - [x] 试用期/首单折扣/升级降级 → 试用期字段 + 优惠券；订阅宽限期降级
 - [x] Webhook 出站（订单事件给 UserLoop/任何 MA）→ `WebhookDispatcher`（HMAC + 退避重试 + 后台可见）
-- [ ] 与 LearnFlow 联调：课程售卖场景
+- [x] 与 LearnFlow 联调：课程售卖场景
 - [x] 发票/收据 → `InvoiceService` + 签名链接 `/invoice/{token}`
 - [x] 开放 API（API Key/HMAC）→ `/api/v1/*`，见 `docs/API.md`
 - [x] 订阅续费引擎（自动续费/失败重试/宽限期降级）→ `SubscriptionService` + `bin/cron.php`

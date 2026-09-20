@@ -2,6 +2,14 @@
 
 版本号见 `payflow/config/app.php → app.version`，对外经 `GET /api/v1/meta` 暴露。
 
+## [1.0.7] — 2026-09-20
+
+主体模型与开放治理收口（不依赖正式支付凭证）：
+- 统一主体贯通：结账 / 嵌入 SDK（`data-external-id` / `data-tenant`）/ 入站事件 / 后台客户与订单检索
+- 入站别名：`learnflow.enrollment.cancelled` → 撤销权益；`customer.upsert` 可按 email 建档
+- 每 Key 日配额（默认 10000）+ `X-RateLimit-*-Day`；API 请求/错误率入看板与 `/api/v1/analytics/summary`
+- 文档与 BACKLOG/ROADMAP/ECOSYSTEM 对齐；凭证联调 / 免密代扣 / 链上监听 / L2 仍待外部条件
+
 ## [1.0.6] — 2026-09-18
 
 后台入口/鉴权逻辑优化：

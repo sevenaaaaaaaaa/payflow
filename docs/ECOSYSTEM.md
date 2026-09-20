@@ -10,15 +10,19 @@
 | 出站 API | `/api/v1/meta`（能力清单）、`products`、`checkout`、`orders/{no}`、`coupons/validate`、`licenses/validate`、`analytics/summary` |
 | 鉴权 | API Key：Bearer（`key_id.secret`）或 HMAC-SHA256（时间戳 5 分钟防重放） |
 | 出站事件 | 12 个事件（见 `docs/EVENTS.md`），HMAC 签名 + 退避重试（最多 5 次）+ 后台可重发 |
-| 幂等 | 订单状态机 `created→paid→delivered→refunded`；`markPaid` 幂等；订单号/交易号可对账 |
+| 入站事件 | `POST /api/v1/events`：`entitlement.revoke` / `customer.update` / `customer.upsert`；LearnFlow 退课别名 |
+| 增量拉取 | `GET /api/v1/events?since=`（Outbox 游标，不依赖 webhook 可达） |
+| 统一主体 | `subject{email,external_id,tenant}`：结账、嵌入 SDK、入站、客户/订单落库与后台检索 |
+| 幂等 | 订单状态机 `created→paid→delivered→refunded`；`markPaid` 幂等；入站 `idempotency_key` |
 | 免登录链接 | 交付页 `/d/{token}`、发票 `/invoice/{token}`、下载 `/download/{token}`、推荐人自助 `/partner?token=`、临时支付链接 `/l/{token}` |
+| 治理 | 每 Key 分钟/日配额、沙箱 Key、弃用头、API 错误率入看板 |
 | 存储 | MySQL 主库（`pf_records`）+ FULLTEXT 检索；SQLite/JSON 回退 |
 
 ## 二、数据流场景（谁赋能谁）
 
 | 场景 | 上游 → 下游 | 通道 | 价值 |
 |---|---|---|---|
-| 表单即支付 | Webs Flow 承接页 → PayFlow | `POST /api/v1/checkout` | 承接页不必自建支付 |
+| 表单即支付 | Webs Flow 承接页 → PayFlow | `POST /api/v1/checkout` + `subject` | 承接页不必自建支付 |
 | 付费用户入档 | PayFlow → UserLoop | `order.paid` / `order.delivered` webhook | 全域档案补上「付费金额/RFM/首复购」 |
 | 内容带货归因 | MFlow 内容 → PayFlow | 购买链接 + `referral` 参数 | 内容→成交闭环，佣金可结算 |
 | 课程售卖/开通 | LearnFlow → PayFlow；PayFlow → LearnFlow | `checkout` + `order.delivered` webhook | 收款即开课；退款即回收学籍 |
@@ -27,28 +31,20 @@
 | 情报→定价 | inFlow 情报 → PayFlow | `analytics/summary` + 人工/建议 | 依据趋势调价/发券 |
 | 全家桶平滑并入 | PayFlow → OpenFlow（可选） | 事件 + 增量拉取 | 想升级整套时数据不丢 |
 
-## 三、待补齐的互通能力（差距 → 建设）
+## 三、契约与发现（H3.1–H3.3，已落地）
 
-### H3.1 契约与发现（低风险，先做）
-- [x] `GET /api/v1/meta` 能力清单（版本、端点、事件、通道、鉴权）
+- [x] `GET /api/v1/meta` 能力清单（版本、端点、事件、通道、鉴权、主体、入站类型）
 - [x] `docs/EVENTS.md` 事件目录
-- [ ] 统一**事件信封**：`{ id, type, version, occurred_at, source, subject, data, idempotency_key }`
-      —— 当前出站事件为 `{event,data,sent_at}`，将向后兼容地补 `id/version/subject`
-- [ ] `GET /api/v1/version` 与弃用策略（Deprecation/Sunset 头）
-
-### H3.2 双向通道（核心）
-- [ ] `POST /api/v1/events` 入站事件（HMAC + 幂等键）：如 LearnFlow 退课→撤销权益、UserLoop 打标
-- [ ] `GET /api/v1/events?since=` 增量拉取（不依赖 webhook 可达性，做最终一致）
-- [ ] 重放保护与去重（`idempotency_key` 落库，TTL）
-
-### H3.3 身份与治理
-- [x] 统一主体：`subject{ email, external_id, tenant }`（结账可带，客户/订单落库）
-- [x] 限流（每 Key 每分钟，超限 429 + `Retry-After`/`X-RateLimit-*`）
+- [x] 统一事件信封 `{ id, type, version, occurred_at, source, subject, data, idempotency_key }`（兼容旧 `event/sent_at`）
+- [x] `GET /api/v1/version` 与弃用策略（Deprecation/Sunset/Link 头）
+- [x] `POST /api/v1/events` 入站（HMAC + 幂等）：撤销权益、客户更新/建档
+- [x] `GET /api/v1/events?since=` 增量拉取
+- [x] 统一主体 `subject{ email, external_id, tenant }`
+- [x] 限流（每 Key 每分钟 + 每日，超限 429 + `Retry-After` / `X-RateLimit-*`）
 - [x] 沙箱：test Key + 强制人工通道 + `mode=test` 事件，看板排除
-- [x] 版本/弃用面：`GET /api/v1/version`
-- [ ] 日配额、可观测扩展（错误率面板）
+- [x] 日配额与 API 错误率（看板 + `/api/v1/analytics/summary`）
 
-## 六、已联调：PayFlow → LearnFlow（课程售卖 / 开课）
+## 四、已联调：PayFlow ↔ LearnFlow（课程售卖）
 
 | 项 | 值 |
 |---|---|
@@ -59,21 +55,17 @@
 | 载荷 | 统一信封；订单字段在 `data` 下，含 `product_id / order_no / email / amount_number / amount_cents / coupon_code / ref_code` |
 
 配置位置：
-- PayFlow：`data/config.json → webhooks.order = { enabled, url, secret }`
-- LearnFlow：`data/settings.json → payflow = { enabled, base_url, secret }`
+- PayFlow：`data/config.json → webhooks.order` 或 `webhooks.endpoints`
+- LearnFlow：`data/settings.json → payflow = { enabled, base_url, secret, api_key }`
 
-已实现兼容：LearnFlow 接收端适配统一信封（`type/event`、`data/order/顶层`、金额归一化）；
-PayFlow 订单公开字段补 `product_id` 与数值金额。
+**联调验证（2026-09-18）**：下单支付 → Webhook 200 → LearnFlow 学籍建立（幂等）。
 
-**联调验证（2026-09-18）**：PayFlow 商品 ↔ LearnFlow 课程映射后，下单支付 → Webhook 投递 200 → LearnFlow 学籍建立（幂等）。
+**反向通道（已通）**：LearnFlow `enroll_remove` → `POST /api/v1/events`（`entitlement.revoke` 或 `learnflow.enrollment.cancelled`，Bearer + 幂等键）→ PayFlow 撤销对应订单权益。
+- 也可只带 `subject.external_id` / `subject.email`，按客户撤销其有效权益。
 
-**反向通道（已通）**：LearnFlow `enroll_remove` → `POST /api/v1/events`（`type: entitlement.revoke`，Bearer + 幂等键）→ PayFlow 撤销对应订单权益。
-- LearnFlow 侧：`lib/PayFlow.php` 的 `payflow_revoke_entitlement()`；`enroll_remove()` 在课程已映射 PayFlow 商品时自动触发。
-- 凭据：PayFlow 侧新建 Key `learnflow`（Bearer），写入 LearnFlow `data/settings.json → payflow.api_key`。
+**多目标投递**：`webhooks.endpoints = [{name,url,secret,enabled,events}]`，兼容旧 `webhooks.order` 单目标。
 
-**多目标投递**：PayFlow Webhook 支持 `webhooks.endpoints = [{name,url,secret,enabled,events}]`（每目标独立密钥与事件过滤），兼容旧 `webhooks.order` 单目标。后台「Webhook」页展示目标与逐条投递（含 endpoint）。
-
-## 四、互通不变量（不可协商）
+## 五、互通不变量（不可协商）
 
 1. 每个产品独立可用；互通是增益。
 2. 不共享数据库，只走公开 API/事件。
@@ -81,9 +73,3 @@ PayFlow 订单公开字段补 `product_id` 与数值金额。
 4. 模型/AI 只能提议，**执行事实只能来自系统**。
 5. 金额、订单、佣金以系统事实为准，可对账、可审计。
 6. 版本演进向后兼容；破坏性变更走新版本 + 迁移说明。
-
-## 五、H3 排期建议
-
-1. **H3.1**（本次）+ 事件信封字段补全 → 一周
-2. **H3.2** 入站事件 + 增量拉取 + 幂等 → 一周
-3. **H3.3** external_id/tenant、限流、沙箱 → 一周

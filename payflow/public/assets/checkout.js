@@ -7,7 +7,7 @@
  *   <script src="https://payflow.nownexts.com/checkout.js"
  *           data-product="prod_xxx" data-target="#buy-slot" data-label="立即购买"></script>
  * 用法 C（JS 调用）：
- *   PayFlow.open({ product: 'prod_xxx' })
+ *   PayFlow.open({ product: 'prod_xxx', external_id: 'u_1', tenant: 'learnflow' })
  *
  * 支持 data-mode="redirect" 直接跳转托管收银台（不走弹窗）。
  */
@@ -49,7 +49,19 @@
     return btn;
   }
 
-  function openModal(product, label) {
+  function subjectQuery(opts) {
+    opts = opts || {};
+    var q = '';
+    var ext = opts.external_id || (script && script.getAttribute('data-external-id')) || '';
+    var tenant = opts.tenant || (script && script.getAttribute('data-tenant')) || '';
+    var email = opts.email || (script && script.getAttribute('data-email')) || '';
+    if (ext) q += '&external_id=' + encodeURIComponent(ext);
+    if (tenant) q += '&tenant=' + encodeURIComponent(tenant);
+    if (email) q += '&email=' + encodeURIComponent(email);
+    return q;
+  }
+
+  function openModal(product, label, opts) {
     var overlay = document.createElement('div');
     css(overlay, {
       position: 'fixed', inset: '0', zIndex: '2147483000',
@@ -58,7 +70,7 @@
     });
 
     var frame = document.createElement('iframe');
-    frame.src = base + '/checkout?product=' + encodeURIComponent(product) + '&embed=1';
+    frame.src = base + '/checkout?product=' + encodeURIComponent(product) + '&embed=1' + subjectQuery(opts);
     frame.title = label || 'PayFlow 结账';
     css(frame, {
       width: 'min(560px, 100%)', height: 'min(760px, 92vh)',
@@ -91,10 +103,10 @@
     var product = opts.product;
     if (!product) { console.error('[PayFlow] 缺少 product'); return; }
     if (script && script.getAttribute('data-mode') === 'redirect') {
-      window.location.href = base + '/checkout?product=' + encodeURIComponent(product);
+      window.location.href = base + '/checkout?product=' + encodeURIComponent(product) + subjectQuery(opts);
       return;
     }
-    return openModal(product, opts.label);
+    return openModal(product, opts.label, opts);
   }
 
   function mount() {
@@ -105,7 +117,15 @@
         var product = node.getAttribute('data-payflow-product');
         var label = node.getAttribute('data-payflow-label') || DEFAULT_LABEL;
         var btn = buildButton(label);
-        btn.addEventListener('click', function () { open({ product: product, label: label }); });
+        btn.addEventListener('click', function () {
+          open({
+            product: product,
+            label: label,
+            external_id: node.getAttribute('data-payflow-external-id') || '',
+            tenant: node.getAttribute('data-payflow-tenant') || '',
+            email: node.getAttribute('data-payflow-email') || '',
+          });
+        });
         node.appendChild(btn);
         node.setAttribute('data-payflow-ready', '1');
       })(nodes[i]);

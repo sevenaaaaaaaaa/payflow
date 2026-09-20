@@ -10,9 +10,11 @@
   <div class="pf-card">
     <form id="pf-form" autocomplete="on">
       <input type="hidden" name="product" value="<?= pf_e((string) $product['id']) ?>">
+      <input type="hidden" name="external_id" value="<?= pf_e((string) ($external_id ?? '')) ?>">
+      <input type="hidden" name="tenant" value="<?= pf_e((string) ($tenant ?? '')) ?>">
       <div class="pf-field">
         <label for="pf-email">邮箱（接收交付内容）</label>
-        <input class="pf-input" type="email" id="pf-email" name="email" placeholder="you@example.com" required>
+        <input class="pf-input" type="email" id="pf-email" name="email" placeholder="you@example.com" value="<?= pf_e((string) ($prefill_email ?? '')) ?>" required>
       </div>
       <div class="pf-field">
         <label for="pf-name">称呼（可选）</label>
@@ -140,7 +142,9 @@
       email: form.email.value,
       name: form.name.value,
       channel: form.channel ? form.channel.value : '',
-      coupon: appliedCoupon || couponInput.value.trim()
+      coupon: appliedCoupon || couponInput.value.trim(),
+      external_id: form.external_id ? form.external_id.value : '',
+      tenant: form.tenant ? form.tenant.value : ''
     };
 
     fetch(BASE + '/api/checkout', {
