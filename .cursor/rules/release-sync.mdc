@@ -1,0 +1,14 @@
+---
+description: 每波改动后推 GitHub、能预览的用 ego lite 测、有生产则同步服务器
+alwaysApply: true
+---
+
+# 发布同步
+
+每完成一波可交付改动后，按这个顺序收尾，不要等用户再提醒：
+
+1. **比对**：确认要提交的文件，排除 `data/`、`uploads/`、密钥、`.env`。
+2. **GitHub**：提交并 `git push origin HEAD`。
+3. **服务器**：有生产环境就同步。源目录是本地 `payflow/`，目标是 `/www/wwwroot/payflow/`。排除 `data/`、`uploads/`、`.git/`、`.env`、`*.bak*`。用 `-rtz`，不要改属主/权限；不要把仓库根（README/docs/.github）灌进应用根。
+4. **预览**：能在浏览器打开的页面，用 ego-browser（ego lite）打开线上入口做端到端核对，不要只用 curl。
+5. 仓库根文档（如 README）只上 GitHub，不同步到应用根。
