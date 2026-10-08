@@ -2,6 +2,14 @@
 
 版本号见 `payflow/config/app.php → app.version`，对外经 `GET /api/v1/meta` 暴露。
 
+## [1.0.8] — 2026-09-28
+
+静态资源迁移到 Cloudflare R2（动态部分仍在本机）：
+- `app.assets_base` 可配置：留空走本机 `/payflow/assets`；设为域名走 R2 + CDN（键 `assets/payflow/`）
+- `pf_asset()` / `pf_asset_url()` 支持 R2 基址；嵌入代码绝对 URL 跟随
+- 上传脚本 `bin/sync-assets-r2.py`（boto3，幂等，凭据走环境变量）
+- 交付文件、PHP/MySQL/回调/cron 均留在服务器（R2 不能承载动态）
+
 ## [1.0.7] — 2026-09-20
 
 主体模型与开放治理收口（不依赖正式支付凭证）：

@@ -141,7 +141,7 @@ foreach (($ent['items'] ?? []) as $item) {
     <a class="pf-btn ghost sm" href="<?= pf_url('/checkout?product=' . (string) $product['id']) ?>" target="_blank" rel="noopener">预览收银台</a>
   </div>
   <p class="pf-muted" style="margin-bottom:10px">把下面这段丢进任何页面即可收款：</p>
-  <pre class="pf-code">&lt;script src="<?= pf_e(rtrim((string) $baseUrl, '/')) ?>/checkout.js"
+  <pre class="pf-code">&lt;script src="<?= pf_e(pf_asset_url('checkout.js')) ?>"
         data-product="<?= pf_e((string) $product['id']) ?>"
         data-label="立即购买"&gt;&lt;/script&gt;</pre>
 </section>

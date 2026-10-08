@@ -12,13 +12,16 @@ declare(strict_types=1);
 return [
     'app' => [
         'name' => 'PayFlow',
-        'version' => '1.0.7',
+        'version' => '1.0.8',
         'env' => 'production',
         'debug' => false,
         // 部署入口：主域名子路径（nownexts.com/payflow）。若改用独立子域，
         // 把 base_url 设为 https://payflow.nownexts.com 且 base_path 设为空串。
         'base_url' => 'https://nownexts.com/payflow',
         'base_path' => '/payflow',
+        // 静态资源基址：留空=本机 /payflow/assets；设为 'https://nownexts.com' 则走 R2+CDN
+        // （键前缀 assets/payflow/，由 r2-assets Worker 提供）
+        'assets_base' => '',
         // 同应用的备选入口（独立子域）。当 Host 匹配时自动切换 base_path='' / base_url=子域，
         // 使同一套代码在 nownexts.com/payflow 与 payflow.nownexts.com 下都能正确生成链接。
         'subdomain' => 'payflow.nownexts.com',

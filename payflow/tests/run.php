@@ -10,6 +10,8 @@ declare(strict_types=1);
 
 $config = require dirname(__DIR__) . '/bootstrap.php';
 $GLOBALS['PF_BASE_PATH'] = ''; // 测试固定无子路径，避免依赖 data/config.json
+$GLOBALS['PF_ASSETS_BASE'] = '';
+$GLOBALS['PF_BASE_URL'] = 'https://example.test';
 
 use PayFlow\Domain\OrderStateMachine;
 use PayFlow\Payment\Signer\AlipaySigner;
@@ -111,6 +113,15 @@ $store->delete('a2');
 check('删除记录', !(new JsonStore($tmp, 'demo'))->has('a2'));
 array_map('unlink', glob($tmp . '/*') ?: []);
 @rmdir($tmp);
+
+echo "\n[静态资源基址]\n";
+$GLOBALS['PF_ASSETS_BASE'] = '';
+check('默认本机资源路径', pf_asset('tokens.css') === '/assets/tokens.css');
+check('默认嵌入绝对 URL', pf_asset_url('checkout.js') === 'https://example.test/assets/checkout.js');
+$GLOBALS['PF_ASSETS_BASE'] = 'https://nownexts.com';
+check('配置后走 R2 前缀', pf_asset('tokens.css') === 'https://nownexts.com/assets/payflow/tokens.css');
+check('配置后嵌入走 R2', pf_asset_url('checkout.js') === 'https://nownexts.com/assets/payflow/checkout.js');
+$GLOBALS['PF_ASSETS_BASE'] = '';
 
 echo "\n[存储驱动]\n";
 $tmpDb = sys_get_temp_dir() . '/pf-db-' . bin2hex(random_bytes(4));

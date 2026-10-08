@@ -50,6 +50,10 @@ if ($host !== '' && $subdomain !== '' && $host === $subdomain) {
     $GLOBALS['PF_BASE_PATH'] = '';
 }
 
+// 静态资源基址（可选）：设置后 pf_asset() 走 R2/CDN。
+$GLOBALS['PF_ASSETS_BASE'] = rtrim((string) ($config['app']['assets_base'] ?? ''), '/');
+$GLOBALS['PF_BASE_URL'] = rtrim((string) ($config['app']['base_url'] ?? ''), '/');
+
 // 全站签名密钥（签名下载/API HMAC）。优先 config.secret，回退后台密码哈希。
 $secret = (string) ($config['secret'] ?? '');
 if ($secret === '') {

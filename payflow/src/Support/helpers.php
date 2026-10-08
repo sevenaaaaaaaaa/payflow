@@ -80,10 +80,33 @@ if (!function_exists('pf_pager')) {
     }
 }
 
+if (!function_exists('pf_asset_url')) {
+    /** 静态资产绝对 URL（用于嵌入第三方页面的脚本/样式） */
+    function pf_asset_url(string $file): string
+    {
+        $base = (string) ($GLOBALS['PF_ASSETS_BASE'] ?? '');
+        $file = ltrim($file, '/');
+        $origin = rtrim((string) ($GLOBALS['PF_BASE_URL'] ?? ''), '/');
+
+        return $base !== ''
+            ? $base . '/assets/payflow/' . $file
+            : $origin . '/assets/' . $file;
+    }
+}
+
 if (!function_exists('pf_asset')) {
-    /** 静态资产 URL：pf_asset('tokens.css') → /payflow/assets/tokens.css */
+    /**
+     * 静态资产 URL：
+     *   未配置 assets_base → /payflow/assets/xxx（本机）
+     *   配置 assets_base   → {base}/assets/payflow/xxx（R2 + CDN）
+     */
     function pf_asset(string $file): string
     {
-        return pf_base_path() . '/assets/' . ltrim($file, '/');
+        $base = (string) ($GLOBALS['PF_ASSETS_BASE'] ?? '');
+        $file = ltrim($file, '/');
+
+        return $base !== ''
+            ? rtrim($base, '/') . '/assets/payflow/' . $file
+            : pf_base_path() . '/assets/' . $file;
     }
 }

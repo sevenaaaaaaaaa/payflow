@@ -50,7 +50,7 @@
 <section id="embed" style="margin-bottom:48px">
   <h2 style="font-size:22px;font-weight:700;margin-bottom:14px">三分钟接入</h2>
   <p class="pf-muted" style="margin-bottom:14px">把下面一行丢进任何页面，就能收款：</p>
-  <pre class="pf-code">&lt;script src="<?= pf_e(rtrim((string) $baseUrl, '/')) ?>/checkout.js"
+  <pre class="pf-code">&lt;script src="<?= pf_e(pf_asset_url('checkout.js')) ?>"
         data-product="<?= pf_e((string) ($products[0]['id'] ?? 'prod_xxx')) ?>"
         data-label="立即购买"&gt;&lt;/script&gt;</pre>
   <div class="pf-grid cols-3" style="margin-top:18px">
