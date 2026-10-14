@@ -17,7 +17,9 @@ use PayFlow\Domain\OrderStateMachine;
 use PayFlow\Payment\Signer\AlipaySigner;
 use PayFlow\Payment\Signer\WechatSigner;
 use PayFlow\Store\JsonStore;
+use PayFlow\Support\Environment;
 use PayFlow\Support\Money;
+use PayFlow\Support\OutboundBlockedException;
 
 $passed = 0;
 $failed = 0;
@@ -645,6 +647,103 @@ foreach ($wApp->webhookDeliveries->all() as $d) { $byEndpoint[(string) $d['endpo
 check('多目标投递 + 事件过滤', count($byEndpoint['a'] ?? []) === 1 && count($byEndpoint['b'] ?? []) === 2);
 check('Outbox 每事件留痕一次', count($wApp->outbox->all()) === 2);
 rrmdir($tmpW);
+
+echo "\n[开发/生产环境隔离]\n";
+
+check('未设变量 + macOS → development', Environment::resolve(null, 'Darwin') === Environment::DEVELOPMENT);
+check('未设变量 + Linux → production', Environment::resolve(null, 'Linux') === Environment::PRODUCTION);
+check('显式 production 在 macOS 生效', Environment::resolve('production', 'Darwin') === Environment::PRODUCTION);
+check('显式 dev 在 Linux 生效', Environment::resolve('dev', 'Linux') === Environment::DEVELOPMENT);
+check('未知取值按 development（安全侧）', Environment::resolve('staging', 'Linux') === Environment::DEVELOPMENT);
+
+// Real env-var precedence (save + restore whatever the caller's shell has).
+$envKeys = ['PAYFLOW_ENV', 'APP_ENV', 'PAYFLOW_ALLOW_LIVE'];
+$savedEnv = [];
+foreach ($envKeys as $k) {
+    $savedEnv[$k] = [getenv($k), $_SERVER[$k] ?? null, $_ENV[$k] ?? null];
+    putenv($k);
+    unset($_SERVER[$k], $_ENV[$k]);
+}
+Environment::override(null, null, 'Linux');
+check('无变量 + Linux 服务器 → production（线上行为不变）', Environment::isProduction() && Environment::liveAllowed());
+Environment::override(null, null, 'Darwin');
+check('无变量 + macOS → 拦截外呼', !Environment::isProduction() && !Environment::liveAllowed());
+putenv('APP_ENV=production');
+check('APP_ENV=production 覆盖 OS 默认', Environment::isProduction());
+putenv('PAYFLOW_ENV=development');
+Environment::override(null, null, 'Linux');
+check('PAYFLOW_ENV 优先于 APP_ENV', !Environment::isProduction());
+putenv('PAYFLOW_ALLOW_LIVE=1');
+check('PAYFLOW_ALLOW_LIVE=1 显式放行', Environment::allowLive() && Environment::liveAllowed());
+foreach ($savedEnv as $k => [$g, $s, $e]) {
+    putenv($g === false ? $k : "{$k}={$g}");
+    if ($s !== null) { $_SERVER[$k] = $s; }
+    if ($e !== null) { $_ENV[$k] = $e; }
+}
+
+$guardLog = [];
+$capture = static function (string $line) use (&$guardLog): void { $guardLog[] = $line; };
+
+// dev: real gateway blocked, labelled, logged
+Environment::override(Environment::DEVELOPMENT, false, null, $capture);
+$blockedMsg = '';
+try {
+    \PayFlow\Support\HttpClient::request('POST', 'https://openapi.alipay.com/gateway.do?x=1', 'a=b');
+} catch (OutboundBlockedException $e) {
+    $blockedMsg = $e->getMessage();
+}
+check('dev 拦截真实网关并标注 DRY-RUN', str_contains($blockedMsg, 'DEV-DRY-RUN') && !str_contains($blockedMsg, 'x=1'));
+check('dev 拦截有日志', count($guardLog) === 1 && str_contains($guardLog[0], 'openapi.alipay.com'));
+check('dev 放行回环地址', Environment::permitsOutbound('http://127.0.0.1:9/hook') && Environment::permitsOutbound('localhost:1025'));
+
+$aliCh = new \PayFlow\Payment\Channel\AlipayChannel([
+    'enabled' => true, 'app_id' => '2021000000000000', 'private_key' => $privatePem,
+    'alipay_public_key' => $publicPem, 'gateway' => 'https://openapi.alipay.com/gateway.do',
+], 'http://localhost');
+$aliErr = '';
+try {
+    $aliCh->createPayment(['order_no' => 'PFDEV1', 'amount_cents' => 100, 'product_name' => 't']);
+} catch (\RuntimeException $e) {
+    $aliErr = $e->getMessage();
+}
+check('dev 支付宝下单不出网且报错（不假装成功）', str_contains($aliErr, 'DEV-DRY-RUN'));
+check('dev 支付宝退款返回 false', $aliCh->refund(['order_no' => 'PFDEV1', 'channel_trade_no' => 'T1', 'amount_cents' => 100], 100) === false);
+check('dev 支付宝查单返回 null', $aliCh->query('PFDEV1') === null);
+
+$devMailer = new \PayFlow\Service\Mailer(['enabled' => true, 'transport' => 'smtp', 'host' => 'smtp.example.com', 'port' => 465]);
+$guardLog = [];
+check('dev 邮件不发送且返回 false', $devMailer->send('a@test.com', 'subj', '<p>x</p>') === false && str_contains($guardLog[0] ?? '', 'DEV-DRY-RUN'));
+$sendmailMailer = new \PayFlow\Service\Mailer(['enabled' => true, 'transport' => 'mail']);
+check('dev sendmail 传输同样拦截', $sendmailMailer->send('a@test.com', 'subj', '<p>x</p>') === false);
+
+// Refund through a gateway channel in dev is recorded as dry-run.
+$tmpEnv = sys_get_temp_dir() . '/pf-env-' . bin2hex(random_bytes(4));
+$envCfg = $subCfg;
+$envCfg['data_dir'] = $tmpEnv;
+$envCfg['channels']['alipay'] = ['enabled' => true, 'app_id' => '2021000000000000', 'private_key' => $privatePem, 'alipay_public_key' => $publicPem, 'gateway' => 'https://openapi.alipay.com/gateway.do'];
+$envApp = new \PayFlow\Application($envCfg);
+$envApp->products->create(['name' => '环境测试', 'slug' => 'env-p', 'type' => 'one_time', 'amount_cents' => 1000, 'entitlement' => ['kind' => 'content', 'items' => [['title' => 'x', 'url' => 'https://x/1']]]]);
+$envStart = $envApp->orderService->startCheckout((string) $envApp->products->findBySlug('env-p')['id'], 'env@test.com', 'e', 'manual');
+$envPaid = $envApp->orderService->markPaid((string) $envStart['order']['id'], 'ENV1', 1000, []);
+$envApp->orders->update((string) $envPaid['id'], ['channel' => 'alipay', 'channel_trade_no' => '2026TRADE']);
+$envApp->orderService->refund((string) $envPaid['id'], 1000, 'dev');
+$envTypes = array_column((array) ($envApp->orders->find((string) $envPaid['id'])['events'] ?? []), 'type');
+check('dev 通道退款被拦截并记 refund.dry_run', in_array('refund.dry_run', $envTypes, true));
+rrmdir($tmpEnv);
+
+// opt-in: deliberate live call allowed (decision only, no real request is made here)
+Environment::override(Environment::DEVELOPMENT, true, null, $capture);
+check('opt-in 后放行真实网关', Environment::permitsOutbound('https://api.mch.weixin.qq.com/v3/pay/transactions/native'));
+$optInThrew = false;
+try { Environment::guardOutbound('HTTP POST', 'https://api.mch.weixin.qq.com/x'); } catch (OutboundBlockedException) { $optInThrew = true; }
+check('opt-in 后 guard 不抛', !$optInThrew);
+
+// prod: never guarded
+Environment::override(Environment::PRODUCTION, false, null, $capture);
+$prodThrew = false;
+try { Environment::guardOutbound('HTTP POST', 'https://openapi.alipay.com/gateway.do'); } catch (OutboundBlockedException) { $prodThrew = true; }
+check('production 不拦截', !$prodThrew && Environment::liveAllowed());
+Environment::override();
 
 echo "\n" . str_repeat('─', 40) . "\n";
 echo "通过 {$passed} · 失败 {$failed}\n";

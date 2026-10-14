@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PayFlow\Service;
 
+use PayFlow\Support\Environment;
 use RuntimeException;
 
 /**
@@ -28,7 +29,15 @@ final class Mailer
         if (!$this->enabled()) {
             return false;
         }
-        if (($this->config['transport'] ?? 'smtp') === 'mail') {
+        // Dev/prod choke point: local sendmail is never loopback-safe; SMTP is allowed only to a loopback host (e.g. Mailpit).
+        $transport = (string) ($this->config['transport'] ?? 'smtp');
+        $target = $transport === 'mail' ? 'sendmail' : (string) ($this->config['host'] ?? '');
+        if (!Environment::permitsOutbound($target)) {
+            Environment::log(sprintf('[PayFlow][DEV-DRY-RUN] mail "%s" to %s not sent: env=%s (set PAYFLOW_ALLOW_LIVE=1 to send)', $subject, $to, Environment::name()));
+
+            return false;
+        }
+        if ($transport === 'mail') {
             return $this->viaMail($to, $subject, $html);
         }
 

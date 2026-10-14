@@ -17,6 +17,9 @@ final class HttpClient
      */
     public static function request(string $method, string $url, string $body = '', array $headers = [], int $timeout = 30): array
     {
+        // Dev/prod choke point: in development, non-loopback targets are blocked (throws) unless PAYFLOW_ALLOW_LIVE=1.
+        Environment::guardOutbound('HTTP ' . strtoupper($method), $url);
+
         if (function_exists('curl_init')) {
             return self::viaCurl($method, $url, $body, $headers, $timeout);
         }

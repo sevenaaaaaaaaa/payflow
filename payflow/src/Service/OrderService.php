@@ -11,6 +11,7 @@ use PayFlow\Domain\OrderStateMachine;
 use PayFlow\Domain\ProductRepository;
 use PayFlow\Domain\SubscriptionRepository;
 use PayFlow\Payment\ChannelManager;
+use PayFlow\Support\Environment;
 use PayFlow\Support\Money;
 use RuntimeException;
 
@@ -357,7 +358,10 @@ final class OrderService
         $amountCents ??= (int) $order['amount_cents'];
 
         $channel = $this->channels->get((string) $order['channel']);
+        $blockedBefore = Environment::blockedCount();
         $channel->refund($order, $amountCents, $reason);
+        // Development guard blocked the gateway call: record it so the local refund is never mistaken for a real one.
+        $refundDryRun = Environment::blockedCount() > $blockedBefore;
 
         $order = $this->orders->update($orderId, [
             'status' => OrderStateMachine::REFUNDED,
@@ -375,6 +379,9 @@ final class OrderService
         $order['_delivery_url'] = $this->entitlements->deliveryUrl($order);
         $this->notifier->orderRefunded($order);
 
+        if ($refundDryRun) {
+            $this->orders->appendEvent($orderId, ['type' => 'refund.dry_run', 'note' => '[DEV-DRY-RUN] channel refund blocked, no money moved']);
+        }
         $this->orders->appendEvent($orderId, ['type' => 'order.refunded', 'amount_cents' => $amountCents, 'reason' => $reason]);
         $this->events->log('order.refunded', ['order_id' => $orderId, 'order_no' => $order['order_no'], 'amount_cents' => $amountCents]);
         $this->webhooks->dispatch('order.refunded', $this->publicOrder($order));
