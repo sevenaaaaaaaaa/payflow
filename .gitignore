@@ -11,3 +11,7 @@ node_modules/
 *.db
 *.sqlite*
 uploads/
+
+# Tool-usage workspace (scripts/batches/data made while *using* PayFlow).
+# Never on GitHub; deploy/sync.sh pushes it to the server at /www/ops/payflow/ (outside the web root).
+/ops/

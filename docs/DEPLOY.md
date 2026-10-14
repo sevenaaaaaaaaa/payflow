@@ -55,8 +55,11 @@ rsync -az --delete -e "ssh -p <SSH_PORT>" \
   --exclude='.git/' --exclude='data/' --exclude='uploads/' \
   --exclude='vendor/' --exclude='.env' --exclude='.user.ini' \
   --exclude='.DS_Store' --exclude='*.bak*' \
+  --exclude=/ops/ \
   ./ "root@<SERVER_IP>:/www/wwwroot/payflow/"
 ```
+
+仓库根 `ops/`（使用工具的产物，gitignored）绝不进 Web 根，由 `deploy/sync.sh` 单独 `rsync --update`（不删）到 `/www/ops/payflow/`。
 
 约定：`data/` 是运行时数据（服务器为源），部署永不删除。
 

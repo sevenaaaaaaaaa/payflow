@@ -5,7 +5,8 @@
 #             不推仓库根 README/docs/.github；排除 data/ uploads/ 等服务器运行时数据）→ 线上 HTTP 验收
 # 用法：bash deploy/sync.sh [-m "提交信息"] [--server-only] [--dry-run]
 #   --server-only  跳过测试与 git，只同步服务器
-#   --dry-run      rsync -n 预演；不 commit/push
+#   --dry-run      rsync -n 预演；不 commit/push（任意分支可跑，非 main 仅警告）
+#   正式部署只允许在 main 分支；仓库根 ops/（gitignored）若非空，另行 rsync --update 到 /www/ops/payflow/（Web 根之外，不删远端）
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -13,6 +14,7 @@ cd "$(dirname "$0")/.."
 HOST=172.96.253.73
 SSH_PORT=28766
 APP_DIR=/www/wwwroot/payflow
+OPS_DIR=/www/ops/payflow   # tool-usage workspace; must stay outside the web root
 SITE=https://nownexts.com/payflow
 GITLEAKS="${GITLEAKS:-$HOME/.local/bin/gitleaks}"
 
@@ -23,13 +25,23 @@ while [ $# -gt 0 ]; do
     --server-only) SERVER_ONLY=1 ;;
     --dry-run) DRY_RUN=1 ;;
     -m) shift; MSG="${1:?-m 需要提交信息}" ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "未知参数: $1（用法见 --help）"; exit 1 ;;
   esac
   shift
 done
 
 step() { printf "\n\033[1;36m=== %s ===\033[0m\n" "$*"; }
+
+# 只允许从 main 部署（--dry-run 任意分支可跑，仅警告）
+CUR_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$CUR_BRANCH" != main ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "⚠ 当前分支 ${CUR_BRANCH}，非 main：dry-run 仅预演，正式部署只允许从 main 进行"
+  else
+    echo "✗ 当前分支 ${CUR_BRANCH}，部署只允许从 main 进行；功能分支请先合并"; exit 1
+  fi
+fi
 
 # 安全闸：payflow/data 绝不能被 git 跟踪
 if git ls-files --error-unmatch payflow/data >/dev/null 2>&1 || [ -n "$(git ls-files payflow/data payflow/uploads docs/secrets-local.md)" ]; then
@@ -75,6 +87,15 @@ rsync $RSYNC_FLAGS -e "ssh -p ${SSH_PORT}" \
   --exclude='*.sqlite*' --exclude='*.db' --exclude='*.lock' --exclude='*.log' \
   --exclude='vendor/' --exclude='node_modules/' --exclude='.DS_Store' \
   payflow/ "root@${HOST}:${APP_DIR}/"
+
+# ─── 2b. 仓库根 ops/ → 服务器 Web 根之外（--update，只增不删；空则跳过） ───
+if [ -d ops ] && [ -n "$(find ops -mindepth 1 ! -name .DS_Store -print -quit)" ]; then
+  step "ops/ → ${HOST}:${OPS_DIR}/（--update，只增不删）"
+  OPS_FLAGS="-rtz"; [ "$DRY_RUN" = 1 ] && OPS_FLAGS="-rtzn --itemize-changes"
+  rsync $OPS_FLAGS --update --exclude='.DS_Store' -e "ssh -p ${SSH_PORT}" \
+    --rsync-path="mkdir -p ${OPS_DIR} && rsync" \
+    ops/ "root@${HOST}:${OPS_DIR}/"
+fi
 
 if [ "$DRY_RUN" = 1 ]; then
   echo "dry-run 完成：未提交、未推送"; exit 0

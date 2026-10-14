@@ -50,6 +50,7 @@ build：无。
   - GitHub 轨（公开仓库，只放干净代码）：php lint + `tests/run.php` → `git add -A`（`.gitignore` 已排除 `data/`、`uploads/`、`.env*`、`secrets*`）→ gitleaks 扫描暂存区（泄漏即中止）→ commit → `git push origin main`；无变更则跳过 commit
   - 服务器轨（按 `.cursor/rules/release-sync.mdc`）：rsync 本地 `payflow/` → `/www/wwwroot/payflow/`，`-rtz`、**不加 `--delete`**、不改属主/权限、不推仓库根 README/docs；排除 `data/`、`uploads/`、`.env*`、`.user.ini`、`secrets*`、`*.sqlite*`/`*.db`/`*.lock`/`*.log`、`*.bak*` 等——服务器上的订单、密钥、`data/config.json` 永不覆盖或删除 → 线上 HTTP 验收
   - `--server-only` 跳过测试与 git；`--dry-run` 只做 `rsync -n` 预演，不提交/推送
+  - 只允许从 `main` 部署（含 `--server-only`）；`--dry-run` 任意分支可跑，非 main 仅警告
   - 脚本开头有安全闸：`payflow/data`、`payflow/uploads`、`docs/secrets-local.md` 若被 git 跟踪则中止
   - 本地 `.git/hooks/pre-commit` 会跑 gitleaks；`docs/PAYMENT-CHANNELS.md:55` 的私钥格式示例已在 `.gitleaksignore` 中豁免
   - 主机/端口沿用同机兄弟项目（`172.96.253.73:28766`），`docs/DEPLOY.md` 中仍为占位符；`docs/DEPLOY.md` 的「rsync 源 = Dev 根 + --delete」写法已过时，以本脚本/cursor 规则为准
@@ -57,6 +58,19 @@ build：无。
   注意：`docs/DEPLOY.md` 写的是以仓库根为 rsync 源，与 cursor 规则冲突；以 cursor 规则为准（不要把 README/docs 灌进应用根）。
 - 服务器 crontab：`*/15 * * * * cd /www/wwwroot/payflow && /www/server/php/83/bin/php bin/cron.php >> data/cron.log 2>&1`
 - 发布流程：提交 → `git push origin HEAD` → 同步服务器 → 用浏览器打开线上入口端到端核对。
+
+## 开发工具 vs 使用工具（硬性规则）
+
+PayFlow 既是在开发的产品，也是每天在用的工具。两类产物必须分开：
+
+| 类别 | 例子 | 放哪 | GitHub | 服务器 |
+|---|---|---|---|---|
+| 开发工具（产品代码） | `payflow/` 下的 `src/`、`routes/`、`views/`、`bin/` 等 | 原目录 | ✅ | ✅（Web 根 `/www/wwwroot/payflow`） |
+| 使用工具的产物 | 对账/运营批处理脚本、批次文件、一次性修复脚本、导出数据 | 仓库根 **`ops/`** | ❌ | ✅ 仅 `/www/ops/payflow/`（Web 根之外，只增不删） |
+
+- `/ops/` 已 gitignore；`deploy/sync.sh` 单独用 `rsync --update` 把它送到 `/www/ops/payflow/`（不随 `payflow/` 进 Web 根，`--dry-run` 只预览）。
+- 支付应用：ops/ 里的导出数据可能含订单/用户信息，绝不放进 `payflow/` 或任何 Web 可达目录。
+- 拿不准时按第二类处理（放 `ops/`，不进 GitHub），再问用户。
 
 ## 注意事项
 
