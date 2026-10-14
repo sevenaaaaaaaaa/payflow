@@ -72,6 +72,21 @@ PayFlow 既是在开发的产品，也是每天在用的工具。两类产物必
 - 支付应用：ops/ 里的导出数据可能含订单/用户信息，绝不放进 `payflow/` 或任何 Web 可达目录。
 - 拿不准时按第二类处理（放 `ops/`，不进 GitHub），再问用户。
 
+## 开发 / 生产环境
+
+目的：本地跑起来（哪怕拷了线上 `data/config.json` 或数据库）也不会真动钱、打真实通道、发真实通知。
+
+- 判定（`payflow/src/Support/Environment.php`）：`PAYFLOW_ENV` → `APP_ENV`（显式变量优先；`production`/`prod`/`live` 为生产，其它任何值按开发）→ 未设置时按 OS：Linux = production，macOS（`PHP_OS_FAMILY === 'Darwin'`）= development。服务器无需改配置；`config.app.env` 不参与判定。
+- 开发环境下的出站守卫（生产环境完全不拦截，行为不变）：
+  - `Support/HttpClient::request()` —— 唯一 HTTP 出口：支付宝网关（下单/查单/退款）、微信支付 APIv3（下单/查单/退款）、出站 Webhook（LearnFlow/OpenFlow 等商户端点，含 cron 重试/后台重发）、`bin/propose.php` 的 AI 调用。非回环目标直接抛 `OutboundBlockedException`（`[PayFlow][DEV-DRY-RUN] ...`，记 error_log），上层按失败处理：下单报错、查单视为未支付、退款返回 false、Webhook 记为失败并在 `last_error` 标注。
+  - `Service/Mailer::send()` —— 所有邮件（收款/交付/退款/订阅/佣金/提现通知）。`transport=mail`（本机 sendmail）一律拦截；SMTP 仅放行回环主机（如 Mailpit `127.0.0.1:1025`）；被拦截时记日志并返回 false。
+  - `OrderService::refund()`：若通道退款被守卫拦截，订单事件追加 `refund.dry_run`，避免把本地退款误当成真退款。
+  - 回环地址（`localhost`、`127.*`、`::1`、`*.localhost`）始终放行，便于本地 mock/兄弟应用联调。
+  - 代码里没有真实沙箱开关（支付宝 `gateway` 可配但需沙箱 app_id/密钥），因此不自动切沙箱，而是统一拦截。
+- 刻意要在本地打真实通道：`PAYFLOW_ALLOW_LIVE=1 php -S ...`（或 CLI 前缀），仅对该进程生效。
+- 本地强制按生产跑：`PAYFLOW_ENV=production`。测试用 `Environment::override()` 固定环境，见 `tests/run.php`「开发/生产环境隔离」。
+- 未覆盖：收银台二维码图片由浏览器请求 `app.qr_endpoint`（公共渲染服务，只泄露支付串，不产生资金动作）；本地若配置指向线上 MySQL，数据库写入不在守卫范围内。
+
 ## 注意事项
 
 - 环境变量（仅名称）：`MYSQL_ENABLED`；R2 同步脚本用 `R2_ACCESS_KEY`、`R2_SECRET`。运行时配置（数据库、管理员、支付通道密钥）在 `payflow/data/config.json`（gitignored）。
