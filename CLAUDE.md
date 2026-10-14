@@ -76,7 +76,7 @@ PayFlow 既是在开发的产品，也是每天在用的工具。两类产物必
 
 目的：本地跑起来（哪怕拷了线上 `data/config.json` 或数据库）也不会真动钱、打真实通道、发真实通知。
 
-- 判定（`payflow/src/Support/Environment.php`）：`PAYFLOW_ENV` → `APP_ENV`（显式变量优先；`production`/`prod`/`live` 为生产，其它任何值按开发）→ 未设置时按 OS：Linux = production，macOS（`PHP_OS_FAMILY === 'Darwin'`）= development。服务器无需改配置；`config.app.env` 不参与判定。
+- 判定（`payflow/src/Support/Environment.php`）：只认 `PAYFLOW_ENV`（通用 `APP_ENV` 故意不认，防止别的工具把线上改成开发；`production`/`prod`/`live` 为生产，其它任何值按开发）→ 未设置时按 OS：Linux = production，macOS（`PHP_OS_FAMILY === 'Darwin'`）= development。服务器无需改配置；`config.app.env` 不参与判定。
 - 开发环境下的出站守卫（生产环境完全不拦截，行为不变）：
   - `Support/HttpClient::request()` —— 唯一 HTTP 出口：支付宝网关（下单/查单/退款）、微信支付 APIv3（下单/查单/退款）、出站 Webhook（LearnFlow/OpenFlow 等商户端点，含 cron 重试/后台重发）、`bin/propose.php` 的 AI 调用。非回环目标直接抛 `OutboundBlockedException`（`[PayFlow][DEV-DRY-RUN] ...`，记 error_log），上层按失败处理：下单报错、查单视为未支付、退款返回 false、Webhook 记为失败并在 `last_error` 标注。
   - `Service/Mailer::send()` —— 所有邮件（收款/交付/退款/订阅/佣金/提现通知）。`transport=mail`（本机 sendmail）一律拦截；SMTP 仅放行回环主机（如 Mailpit `127.0.0.1:1025`）；被拦截时记日志并返回 false。

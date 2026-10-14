@@ -8,7 +8,7 @@ namespace PayFlow\Support;
  * Runtime environment (development vs production) and the outbound side-effect guard.
  *
  * Resolution order:
- *   1) PAYFLOW_ENV, then APP_ENV (explicit env var always wins)
+ *   1) PAYFLOW_ENV only (explicit env var always wins; generic APP_ENV is ignored on purpose so another tool's setting can't flip production)
  *   2) OS default: macOS (Darwin) => development, everything else (Linux server) => production
  *
  * In development every outbound side effect (payment gateways, merchant webhooks, email,
@@ -38,7 +38,7 @@ final class Environment
         }
 
         return self::resolve(
-            self::readVar('PAYFLOW_ENV') ?? self::readVar('APP_ENV'),
+            self::readVar('PAYFLOW_ENV'),
             self::$forcedOsFamily ?? PHP_OS_FAMILY,
         );
     }

@@ -668,11 +668,14 @@ Environment::override(null, null, 'Linux');
 check('无变量 + Linux 服务器 → production（线上行为不变）', Environment::isProduction() && Environment::liveAllowed());
 Environment::override(null, null, 'Darwin');
 check('无变量 + macOS → 拦截外呼', !Environment::isProduction() && !Environment::liveAllowed());
-putenv('APP_ENV=production');
-check('APP_ENV=production 覆盖 OS 默认', Environment::isProduction());
-putenv('PAYFLOW_ENV=development');
+putenv('PAYFLOW_ENV=production');
+check('PAYFLOW_ENV=production 覆盖 OS 默认', Environment::isProduction());
+putenv('PAYFLOW_ENV');
+putenv('APP_ENV=development');
 Environment::override(null, null, 'Linux');
-check('PAYFLOW_ENV 优先于 APP_ENV', !Environment::isProduction());
+check('通用 APP_ENV 被忽略（线上不会被别的工具改成开发环境）', Environment::isProduction());
+putenv('PAYFLOW_ENV=development');
+check('PAYFLOW_ENV=development 覆盖 Linux 默认', !Environment::isProduction());
 putenv('PAYFLOW_ALLOW_LIVE=1');
 check('PAYFLOW_ALLOW_LIVE=1 显式放行', Environment::allowLive() && Environment::liveAllowed());
 foreach ($savedEnv as $k => [$g, $s, $e]) {
